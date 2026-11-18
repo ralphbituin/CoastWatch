@@ -11,6 +11,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     anomalies,
     cameras,
+    countries,
     health,
     shorelines,
     stations,
@@ -20,6 +21,7 @@ from app.api.routes import (
 
 api_router = APIRouter()
 api_router.include_router(health.router)
+api_router.include_router(countries.router, prefix="/countries")
 api_router.include_router(stations.router, prefix="/stations")
 api_router.include_router(tides.router, prefix="/tides")
 api_router.include_router(cameras.router, prefix="/cameras")
