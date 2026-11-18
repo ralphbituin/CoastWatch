@@ -35,7 +35,7 @@ def test_unknown_route_uses_error_envelope(client: TestClient) -> None:
 
 
 def test_phase_stub_modules_report_phase(client: TestClient) -> None:
-    stubs = (("cameras", 3), ("tides", 2), ("stations", 2), ("shorelines", 4), ("anomalies", 6))
+    stubs = (("shorelines", 4), ("anomalies", 6), ("cameras", 3))
     for module, phase in stubs:
         response = client.get(f"{API}/{module}")
         assert response.status_code == 501, module
@@ -43,6 +43,23 @@ def test_phase_stub_modules_report_phase(client: TestClient) -> None:
         assert body["module"] == module
         assert body["phase"] == phase
         assert body["implemented"] is False
+
+
+def test_openapi_schema_includes_tide_routes(client: TestClient) -> None:
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    for expected in (
+        "/api/v1/health",
+        "/api/v1/tides/stations",
+        "/api/v1/tides/at",
+        "/api/v1/tides/current",
+        "/api/v1/tides/chart",
+        "/api/v1/tides/imports",
+        "/api/v1/stations",
+        "/api/v1/countries",
+    ):
+        assert expected in paths, expected
 
 
 def test_openapi_schema_available(client: TestClient) -> None:
