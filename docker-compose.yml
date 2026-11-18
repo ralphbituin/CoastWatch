@@ -1,0 +1,90 @@
+# CoastWatch development stack.
+#   docker compose up --build
+#
+# Services: TimescaleDB (with PostGIS) + FastAPI backend + Next.js frontend.
+# Every service declares a healthcheck; dependents wait for healthy.
+
+name: coastwatch
+
+services:
+  db:
+    image: timescale/timescaledb-ha:pg16
+    container_name: coastwatch-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-coastwatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coastwatch}
+      POSTGRES_DB: ${POSTGRES_DB:-coastwatch}
+      # Keep the HA image from demanding a non-default password policy.
+      PGDATA: /home/postgres/pgdata/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db-data:/home/postgres/pgdata/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-coastwatch} -d ${POSTGRES_DB:-coastwatch}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    container_name: coastwatch-backend
+    environment:
+      PROJECT_NAME: ${PROJECT_NAME:-CoastWatch}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-true}
+      API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
+      LOG_FORMAT: ${LOG_FORMAT:-console}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      POSTGRES_USER: ${POSTGRES_USER:-coastwatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coastwatch}
+      POSTGRES_DB: ${POSTGRES_DB:-coastwatch}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Manila}
+      MODEL_PATH: /app/models
+      DATA_DIR: /data
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ml/models:/app/models
+      - ./data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
+    container_name: coastwatch-frontend
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/dashboard >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  db-data:

@@ -1,0 +1,32 @@
+# CoastWatch backend — core runtime dependencies (Phase 1)
+# Machine-learning / heavy CV extras live in requirements-ml.txt.
+# Pin the data stack to numpy 1.x for broad binary compatibility with the
+# OpenCV and SciPy wheels used across the project.
+
+# --- Web framework ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+websockets==14.1
+
+# --- Config & validation ---
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# --- Database ---
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg2-binary==2.9.10
+geoalchemy2==0.16.0
+
+# --- Observability ---
+python-json-logger==3.2.1
+
+# --- Scientific / data stack (used from Phase 2 onward) ---
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.15.0
+scikit-learn==1.6.0
+
+# --- Computer vision foundations (Phase 3/4 onward) ---
+opencv-python-headless==4.10.0.84

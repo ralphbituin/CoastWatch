@@ -1,0 +1,12 @@
+# CoastWatch backend — optional ML / segmentation extras.
+# These are NOT installed in the Phase 1 CI job; they are installed on the
+# GPU development and edge (Jetson Orin Nano, Phase 9) environments.
+#
+# Install with:  pip install -r requirements-ml.txt
+-r requirements.txt
+
+torch==2.5.1
+torchvision==0.20.1
+onnxruntime==1.20.1
+segmentation-models-pytorch==0.4.0
+albumentations==1.4.21
