@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     # Root directory for operator-provided datasets (CSV tide tables, videos).
     data_dir: str = Field(default=str(REPO_ROOT / "data"))
 
+    # --- Tide classification tolerances (configurable per deployment) ---
+    # |slope| at a timestamp below this (m per hour) is treated as slack water.
+    tide_slack_slope_tolerance_m_per_hour: float = Field(default=0.01)
+    # Minimum prominence (m) for a local extremum to count as high/low water.
+    tide_extrema_prominence_m: float = Field(default=0.05)
+
     @property
     def sync_database_url(self) -> str:
         """SQLAlchemy URL for the (synchronous) PostgreSQL + PostGIS database."""

@@ -42,6 +42,11 @@ class ValidationError(CoastWatchError):
     code = "validation_error"
 
 
+class ConflictError(CoastWatchError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "conflict"
+
+
 class DataUnavailableError(CoastWatchError):
     """Requested data is legitimately unavailable (e.g. outside dataset range).
 
