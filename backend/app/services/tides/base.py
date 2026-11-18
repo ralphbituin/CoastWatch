@@ -16,6 +16,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+from app.services.tides.interpolation import InterpolationMethod
+
 
 class TideEvent(StrEnum):
     HIGH = "high"
@@ -80,6 +82,8 @@ class TidePhaseResult:
     quality: DataQuality
     previous_event: HighLowWater | None = None
     next_event: HighLowWater | None = None
+    source: str | None = None
+    dataset_id: int | None = None
 
 
 class TideProvider(ABC):
@@ -89,7 +93,7 @@ class TideProvider(ABC):
     def get_stations(self) -> list[TideStationInfo]: ...
 
     @abstractmethod
-    def import_data(self, source: Any, **options: Any) -> dict[str, Any]: ...
+    def import_data(self, content: Any, **options: Any) -> dict[str, Any]: ...
 
     @abstractmethod
     def get_predictions(
@@ -102,4 +106,10 @@ class TideProvider(ABC):
     ) -> list[HighLowWater]: ...
 
     @abstractmethod
-    def get_prediction_at(self, station_code: str, timestamp: datetime) -> TidePhaseResult: ...
+    def get_prediction_at(
+        self,
+        station_code: str,
+        timestamp: datetime,
+        *,
+        method: InterpolationMethod = InterpolationMethod.PCHIP,
+    ) -> TidePhaseResult: ...
