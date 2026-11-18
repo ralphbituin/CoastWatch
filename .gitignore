@@ -85,6 +85,7 @@ pnpm-debug.log*
 *.swo
 .DS_Store
 Thumbs.db
+graphify-out/
 
 # Docker and logs
 *.log
