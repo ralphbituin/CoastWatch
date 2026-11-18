@@ -43,3 +43,139 @@ export type SystemState =
   | "ANOMALY_DETECTED"
   | "DATA_UNRELIABLE"
   | "OFFICIAL_TSUNAMI_ADVISORY";
+
+// ---------------------------------------------------------------------------
+// Tide module (mirrors backend Pydantic schemas)
+// ---------------------------------------------------------------------------
+
+export interface TideEvent {
+  timestamp: string;
+  height: number;
+  type: "high" | "low";
+  unit: string;
+  datum: string | null;
+}
+
+export interface TideStation {
+  id: number;
+  code: string;
+  name: string;
+  region: string | null;
+  country_iso: string;
+  country_name: string;
+  latitude: number;
+  longitude: number;
+  timezone: string;
+  data_source: string;
+  vertical_datum: string | null;
+  measurement_unit: string;
+  prediction_start: string | null;
+  prediction_end: string | null;
+  monitoring_station_id: number | null;
+  dataset_count: number;
+}
+
+export interface TidePoint {
+  timestamp: string;
+  height: number;
+  unit: string;
+  datum: string | null;
+  quality_status: string;
+}
+
+export interface TidePhaseResponse {
+  station_code: string;
+  station_name: string;
+  requested_timestamp: string;
+  local_timestamp: string;
+  server_time: string;
+  predicted_height_m: number;
+  unit: string;
+  vertical_datum: string | null;
+  direction: string;
+  quality: string;
+  quality_note: string;
+  source: string | null;
+  dataset_id: number | null;
+  timezone: string;
+  interpolation_method: string;
+  previous_event: TideEvent | null;
+  next_event: TideEvent | null;
+}
+
+export interface TideChartResponse {
+  station_code: string;
+  start: string;
+  end: string;
+  method: string;
+  count: number;
+  coverage_start: string | null;
+  coverage_end: string | null;
+  sufficient_for_7d: boolean;
+  points: TidePoint[];
+  events: TideEvent[];
+}
+
+export interface ImportPreviewResponse {
+  station_code: string | null;
+  timezone: string;
+  file_hash: string | null;
+  columns_detected: string[];
+  column_mapping: Record<string, unknown>;
+  total_records: number;
+  valid_records: number;
+  rejected_records: number;
+  rejection_summary: Record<string, unknown>;
+  rejection_samples: Array<Record<string, unknown>>;
+  coverage_start: string | null;
+  coverage_end: string | null;
+  message: string;
+}
+
+export interface ImportCommitResponse extends ImportPreviewResponse {
+  dataset_id: number | null;
+  import_id: number;
+  status: "committed" | "partial" | "rejected" | "duplicate";
+  imported_records: number;
+}
+
+export interface DatasetImportRead {
+  id: number;
+  tide_station_id: number;
+  station_code: string;
+  dataset_id: number | null;
+  source_filename: string | null;
+  file_hash: string | null;
+  total_records: number;
+  imported_records: number;
+  rejected_records: number;
+  status: string;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Stations module
+// ---------------------------------------------------------------------------
+
+export interface MonitoringStation {
+  id: number;
+  code: string;
+  name: string;
+  region: string | null;
+  country_iso: string;
+  country_name: string;
+  latitude: number;
+  longitude: number;
+  timezone: string;
+  vertical_datum: string | null;
+  description: string | null;
+  tide_station_count: number;
+  created_at: string;
+}
+
+export interface Country {
+  id: number;
+  iso_code: string;
+  name: string;
+  default_timezone: string;
+}
