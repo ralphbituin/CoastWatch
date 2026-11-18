@@ -154,10 +154,17 @@ backend/app/
 └── main.py                     FastAPI app factory
 ```
 
-Phase 1 ships the API surface for every module. Modules whose logic lands in a
-later phase register **explicit phase-stub endpoints** (HTTP 501 with the target
-phase) so versioning and the frontend route map stay stable and nothing is
-faked.
+Phase 1 shipped the versioned API surface; Phase 2 implements the tide engine.
+Modules whose logic lands in a later phase still register **explicit phase-stub
+endpoints** (HTTP 501 with the target phase) so versioning and the frontend
+route map stay stable and nothing is faked.
+
+**Phase 2 status (tide prediction engine): implemented.** `services/tides/`
+provides `NAMRIATideProvider` (list stations, preview/commit CSV import with
+validation + rejection persistence, range queries, PCHIP/linear interpolation,
+extrema detection, high/low water events, rising/falling/slack classification,
+current-time and selected-time predictions). The dashboard consumes it through
+`/api/v1/tides/*` and `/api/v1/*` station endpoints.
 
 ---
 
@@ -200,7 +207,12 @@ Key invariants:
 | GET | `/health` | 1 | ✅ implemented |
 | GET | `/health/db` | 1 | ✅ implemented |
 | GET | `/ws` | 1 (plumbing) | ✅ implemented |
-| GET | `/stations`, `/tides`, `/cameras`, `/shorelines`, `/anomalies` | 2–6 | ⏳ phase stubs (501) |
+| GET | `/countries` | 2 | ✅ implemented |
+| POST/GET | `/stations` | 2 | ✅ implemented |
+| GET/POST | `/tides/stations`, `/tides/predictions`, `/tides/current`, `/tides/at`, `/tides/chart`, `/tides/high-low-waters`, `/tides/imports*` | 2 | ✅ implemented |
+| GET | `/cameras` | 3 | ⏳ phase stub (501) |
+| GET | `/shorelines` | 4 | ⏳ phase stub (501) |
+| GET | `/anomalies` | 6 | ⏳ phase stub (501) |
 
 See `docs/API_DOCUMENTATION.md` for details.
 
