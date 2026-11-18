@@ -185,6 +185,10 @@ class DatasetImport(Base, TimestampMixin):
     rejected_records: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # e.g. {"invalid_date": 3, "duplicate": 1, "missing_height": 2}
     rejection_summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # Bounded list of rejected records with reasons (capped), so nothing is
+    # silently discarded. Set ``rejection_summary.rejected_records_truncated``
+    # when the cap is hit.
+    rejection_samples: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
 
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     message: Mapped[str | None] = mapped_column(Text)
