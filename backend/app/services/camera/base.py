@@ -1,7 +1,7 @@
 """Common camera provider interface (Phase 3).
 
 Both RTSP and USB providers return standardized frames with timestamps and
-camera metadata. Implementations land in Phase 3.
+camera metadata. Upload cameras read previously captured stills from disk.
 """
 
 from __future__ import annotations
@@ -10,6 +10,18 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
+
+
+class CameraError(Exception):
+    """Base class for camera acquisition failures."""
+
+
+class CameraConnectionError(CameraError):
+    """The camera could not be opened or reached."""
+
+
+class FrameUnavailableError(CameraError):
+    """A frame was requested but none could be acquired."""
 
 
 @dataclass(slots=True)
@@ -51,7 +63,9 @@ class CameraProvider(ABC):
     def disconnect(self) -> None: ...
 
     @abstractmethod
-    def read_frame(self) -> Frame | None: ...
+    def read_frame(self) -> Frame:
+        """Return the next frame, or raise :class:`FrameUnavailableError`."""
+        ...
 
     @abstractmethod
     def get_status(self) -> CameraStatus: ...
