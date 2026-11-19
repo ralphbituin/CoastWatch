@@ -35,7 +35,7 @@ def test_unknown_route_uses_error_envelope(client: TestClient) -> None:
 
 
 def test_phase_stub_modules_report_phase(client: TestClient) -> None:
-    stubs = (("shorelines", 4), ("anomalies", 6), ("cameras", 3))
+    stubs = (("shorelines", 4), ("anomalies", 6))
     for module, phase in stubs:
         response = client.get(f"{API}/{module}")
         assert response.status_code == 501, module
@@ -58,6 +58,11 @@ def test_openapi_schema_includes_tide_routes(client: TestClient) -> None:
         "/api/v1/tides/imports",
         "/api/v1/stations",
         "/api/v1/countries",
+        "/api/v1/cameras",
+        "/api/v1/cameras/{camera_id}/status",
+        "/api/v1/cameras/{camera_id}/test-connection",
+        "/api/v1/cameras/{camera_id}/frame",
+        "/api/v1/cameras/{camera_id}/calibrations",
     ):
         assert expected in paths, expected
 
