@@ -28,6 +28,7 @@ from app.services.camera.base import (
 from app.services.camera.rtsp import RTSPCameraProvider
 from app.services.camera.upload import UploadCameraProvider, camera_upload_dir
 from app.services.camera.usb import USBCameraProvider
+from app.services.camera.video import VideoFileCameraProvider, resolve_video_path
 from app.services.vision.preprocessing import (
     FrameQuality,
     PreprocessConfig,
@@ -64,6 +65,11 @@ def build_provider(camera: Camera) -> CameraProvider:
         return UploadCameraProvider(
             camera_upload_dir(settings.data_dir, camera.id), camera_id=camera.id
         )
+    if camera.camera_type == "video":
+        if not camera.video_path:
+            raise CameraConnectionError(f"camera {camera.code} has no video_path configured")
+        source = resolve_video_path(settings.data_dir, camera.video_path)
+        return VideoFileCameraProvider(source, camera_id=camera.id, fps=camera.fps)
     raise CameraConnectionError(f"unsupported camera_type: {camera.camera_type!r}")
 
 
@@ -88,6 +94,20 @@ def drop_provider(camera_id: int) -> None:
             provider.disconnect()
         except Exception:  # pragma: no cover - best-effort cleanup
             logger.warning("failed to disconnect cached provider for camera %s", camera_id)
+
+
+def drop_all_providers() -> None:
+    """Disconnect and forget every cached provider (tests, shutdown)."""
+    with _lock:
+        providers = list(_providers.values())
+        _providers.clear()
+        _previous_frames.clear()
+        _previous_captured_at.clear()
+    for provider in providers:
+        try:
+            provider.disconnect()
+        except Exception:  # pragma: no cover - best-effort cleanup
+            logger.warning("failed to disconnect cached provider during drop_all")
 
 
 def provider_status(camera: Camera) -> CameraStatus:
