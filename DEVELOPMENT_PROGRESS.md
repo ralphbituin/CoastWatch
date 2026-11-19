@@ -13,7 +13,7 @@ running log.
 |---|---|---|
 | 1 | Project foundation (backend, frontend, DB, Docker, CI, docs) | [x] complete |
 | 2 | Tide prediction engine | [x] complete |
-| 3 | Camera integration | [ ] not started |
+| 3 | Camera integration | [x] complete |
 | 4 | Shoreline computer vision | [ ] not started |
 | 5 | Tide-aware shoreline baseline | [ ] not started |
 | 6 | Anomaly detection engine | [ ] not started |
@@ -163,6 +163,89 @@ the new routes, `npm run lint`, `npm run build`, docker compose rebuild
 
 ### Remaining tasks
 - Phase 3 (Camera integration) requires explicit approval.
+
+---
+
+## Phase 3 - Camera Integration
+
+**Goal:** RTSP + USB camera acquisition with health monitoring, frame
+quality checks, per-camera calibration profiles and operator still uploads.
+
+### Implemented
+- `CameraProvider` ABC (`connect`, `disconnect`, `read_frame`, `get_status`,
+  `get_metadata`) unchanged; providers now implemented:
+  `RTSPCameraProvider` (FFMPEG-backed `cv2.VideoCapture`, configurable
+  connect/read timeout, auto-reconnect with bounded attempts, consecutive-failure
+  tracking with stream drop + reconnect, warm-connection reuse),
+  `USBCameraProvider` (device index, resolution/FPS configuration via capture
+  properties) and `UploadCameraProvider` (serves the latest operator-uploaded
+  JPEG/PNG from `DATA_DIR/uploads/cameras/<id>/`).
+- `app/services/camera/manager.py`: in-process provider registry (cached per
+  camera, never constructed in route handlers), `test_connection` (fresh
+  short-lived connection: open → read one frame → disconnect, latency + quality
+  report), `capture_frame` (cached provider + quality assessment with
+  previous-frame context), RTSP credential redaction for API responses.
+- Frame preprocessing implemented in `services/vision/preprocessing.py`:
+  ROI crop (with bounds validation) → resize (explicit size or max-dimension)
+  → non-local-means denoise → CLAHE contrast enhancement. Frame quality
+  assessment: black frames (mean intensity), frozen frames (mean abs diff vs
+  previous frame), severe blur (Laplacian variance), obstruction (flat/covered
+  lens heuristic), timestamp inconsistencies (non-monotonic capture times).
+- Camera routes (`/api/v1/cameras*`): list / create / detail / `status`
+  (never opens hardware; reports this process's live connection) /
+  `test-connection` / `frame` (JPEG with `X-Frame-*` and `X-Quality-*`
+  headers; `404 data_unavailable` when no frame — never a fabricated frame) /
+  `upload-frame` (`upload` type only, JPEG/PNG ≤ 10 MB, decoded and validated
+  before persisting) / calibration profiles (list + create-next-version with
+  `set_active` demotion; 3×3 homography validated; `cameras.active_calibration_id`
+  repointed).
+- Frame endpoint returns `image/jpeg`; all errors use the standard envelope.
+- Fixed `RequestValidationError` handler to JSON-encode pydantic error context
+  (bare `ValueError` contexts previously crashed error serialization with a 500).
+- Frontend `cameras/` page: live camera list, registration form (RTSP/USB/upload,
+  per-camera resolution/FPS/orientation/location), health panel with
+  test-connection + quality report, frame preview with refresh, upload still
+  for upload cameras, calibration profile creation + history.
+  `frontend/lib/cameras.ts` typed client; `CamerasView.tsx` replaces the
+  PhasePlaceholder.
+- Integration tests write `TEST-CAM-*` rows and clean them up afterwards
+  (module teardown) — the dev database ships no residual test rows.
+
+### New files
+`app/schemas/cameras.py`, `app/services/camera/{manager,upload}.py`,
+`tests/unit/test_{camera_providers,frame_quality}.py`,
+`tests/integration/test_cameras.py`, `frontend/lib/cameras.ts`.
+Modified: `app/services/camera/{base,rtsp,usb,__init__}.py`,
+`app/services/vision/preprocessing.py`, `app/api/routes/cameras.py`,
+`app/core/exceptions.py`, `tests/unit/test_api_surface.py`,
+`frontend/{lib/types.ts,features/cameras/CamerasView.tsx}`,
+API docs, ARCHITECTURE.md.
+
+### Tests executed
+`ruff check`, `ruff format`, `mypy app`, `pytest` (unit), `COASTWATCH_INTEGRATION=1 pytest`
+(live docker DB), `npm run lint`, `npm run build`, docker compose rebuild
+(backend+frontend), live HTTP probes of `/cameras*` against the rebuilt stack.
+
+### Test results
+- Lint/format/mypy clean. 99 tests passing (75 unit + 24 integration),
+  2 hardware-gated RTSP/USB tests skipped (no devices on this machine).
+- Frontend: `npm run lint` clean, `npm run build` succeeds; `/cameras` prerenders.
+
+### Known issues / notes
+- Hardware-gated tests (`test_rtsp_test_connection_hardware`,
+  `test_usb_test_connection_hardware`) skip unless `COASTWATCH_RTSP_TEST_URL` /
+  `COASTWATCH_USB_TEST_DEVICE` are set — they were **not** executed on this
+  machine; RTSP/USB code paths are covered by mocked-`VideoCapture` unit tests only.
+- Frame quality checks are conservative pixel-statistics heuristics, not a
+  substitute for site-specific tuning.
+- Provider connections are cached per process; in multi-worker deployments
+  each worker holds its own stream(s).
+- `/cameras/{id}/status` reports only this process's live provider; it never
+  opens hardware by itself.
+- Live USB device index `0` was exercised only through unit mocks here.
+
+### Remaining tasks
+- Phase 4 (Shoreline computer vision) requires explicit approval. Do not start.
 
 ---
 

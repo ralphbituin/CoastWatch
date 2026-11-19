@@ -78,6 +78,7 @@ pnpm-debug.log*
 
 # IDE and editors
 .vscode/*
+.opencode/
 !.vscode/extensions.json
 !.vscode/settings.json
 .idea/

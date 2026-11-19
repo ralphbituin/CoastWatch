@@ -146,7 +146,7 @@ backend/app/
 ├── schemas/                    Pydantic request/response models
 ├── services/
 │   ├── pipeline.py             orchestration seam (Phase 4+)
-│   ├── camera/                 base.py · rtsp.py · usb.py
+│   ├── camera/                 base.py · rtsp.py · usb.py · upload.py · manager.py
 │   ├── vision/                 preprocessing · segmentation · shoreline · calibration
 │   ├── tides/                  base.py · namria.py · csv_import · interpolation · tide_phase
 │   ├── baseline/               expected_shoreline.py
@@ -210,7 +210,7 @@ Key invariants:
 | GET | `/countries` | 2 | ✅ implemented |
 | POST/GET | `/stations` | 2 | ✅ implemented |
 | GET/POST | `/tides/stations`, `/tides/predictions`, `/tides/current`, `/tides/at`, `/tides/chart`, `/tides/high-low-waters`, `/tides/imports*` | 2 | ✅ implemented |
-| GET | `/cameras` | 3 | ⏳ phase stub (501) |
+| GET | `/cameras` | 3 | ✅ implemented |
 | GET | `/shorelines` | 4 | ⏳ phase stub (501) |
 | GET | `/anomalies` | 6 | ⏳ phase stub (501) |
 

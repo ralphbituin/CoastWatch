@@ -224,13 +224,48 @@ Every inserted row is stamped with the **station and dataset** it came from
 
 ---
 
+## Cameras (Phase 3 — implemented)
+
+Cameras are registered per monitoring station. Three transports are supported:
+`rtsp` (network streams, auto-reconnect + stream-health tracking), `usb`
+(local devices via OpenCV `VideoCapture`) and `upload` (operators drop still
+frames into the platform — useful where no live feed exists). Frames are
+acquired on demand or consumed by the pipeline in later phases; every frame is
+quality-assessed (black / frozen / blurry / obstructed / timestamp
+inconsistent) before it leaves the service.
+
+RTSP URLs may carry credentials; they are stored but **never returned in full** —
+API responses expose `rtsp_url_redacted` (scheme + host only).
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/cameras` | List cameras (joined with station code/name; RTSP URLs redacted) |
+| POST | `/cameras` | Register a camera (`201`). `rtsp` requires `rtsp_url`; `usb` requires `device_index`; `upload` takes neither |
+| GET | `/cameras/{id}` | Camera detail |
+| GET | `/cameras/{id}/status` | Health snapshot (connected/healthy/message, frames captured, last frame time). Reports this process's live connection, or `not connected` if none — it never opens hardware on its own |
+| POST | `/cameras/{id}/test-connection` | Short-lived connection test: opens the stream, reads one frame, disconnects. Returns `ok`, `latency_ms`, frame size/timestamp and a quality report (`score` 0–1, `flags`) |
+| GET | `/cameras/{id}/frame` | Capture and return the latest frame as `image/jpeg`. Response headers carry `X-Frame-Sequence`, `X-Frame-Captured-At`, `X-Quality-Score`, `X-Quality-Flags`. Returns `404 data_unavailable` when no frame can be acquired — never a blank or fabricated frame |
+| POST | `/cameras/{id}/upload-frame` | `upload`-type cameras only. Multipart `file` (JPEG/PNG, ≤ 10 MB); the payload is decoded and validated before being stored under `DATA_DIR/uploads/cameras/{id}/` |
+| GET | `/cameras/{id}/calibrations` | List calibration profiles (newest first) |
+| POST | `/cameras/{id}/calibrations` | Create the next calibration version (`201`). Optional `reference_points`, `homography_matrix` (3×3), `meters_per_pixel`, `valid_from`/`valid_to`, `notes`; `set_active` (default `true`) demotes other profiles and points `cameras.active_calibration_id` at the new one |
+
+**Camera fields:** `code` (unique), `name`, `monitoring_station_id`, `camera_type`,
+`resolution_width` / `resolution_height` / `fps` (per camera — never assumed
+identical), `latitude` / `longitude` (+ PostGIS `location`), `orientation_deg`,
+`monitoring_region` (GeoJSON-like JSONB), `enabled`.
+
+**Calibration profiles** are versioned per camera (`unique(camera_id, version)`)
+and never shared between cameras. `is_active` marks the current profile;
+`cameras.active_calibration_id` points at it.
+
+---
+
 ## Module endpoints (phase stubs)
 
 The following routes return **HTTP 501** with an honest payload naming the phase
 that implements them (versioned API surface is stable throughout):
 | Method | Path | Phase |
 |---|---|---|
-| GET | `/cameras` | 3 (RTSP / USB acquisition) |
 | GET | `/shorelines` | 4 (vision waterline) |
 | GET | `/anomalies` | 6 (anomaly engine) |
 
