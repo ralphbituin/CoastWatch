@@ -37,6 +37,11 @@ from app.schemas.common import Message
 from app.services.camera import manager
 from app.services.camera.base import CameraError, FrameUnavailableError
 from app.services.camera.upload import ALLOWED_UPLOAD_EXTENSIONS, camera_upload_dir
+from app.services.camera.video import (
+    ALLOWED_VIDEO_EXTENSIONS,
+    resolve_video_path,
+    video_dir,
+)
 from app.services.vision.preprocessing import FrameQuality
 
 logger = get_logger(__name__)
@@ -44,6 +49,7 @@ logger = get_logger(__name__)
 router = APIRouter(tags=["cameras"])
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 
 
 def _get_camera(db: Session, camera_id: int) -> Camera:
@@ -65,6 +71,7 @@ def _to_read(camera: Camera) -> CameraRead:
         camera_type=camera.camera_type,
         rtsp_url_redacted=manager.redact_rtsp_url(camera.rtsp_url),
         device_index=camera.device_index,
+        video_path=camera.video_path,
         resolution_width=camera.resolution_width,
         resolution_height=camera.resolution_height,
         fps=camera.fps,
@@ -108,6 +115,12 @@ def create_camera(payload: CameraCreate, db: Session = Depends(get_db)) -> Camer
     station = db.get(MonitoringStation, payload.monitoring_station_id)
     if station is None:
         raise NotFoundError(f"Monitoring station not found: {payload.monitoring_station_id}")
+    if payload.camera_type == "video":
+        # Normalize + reject path traversal before storing.
+        try:
+            resolve_video_path(get_settings().data_dir, payload.video_path or "")
+        except CameraError as exc:
+            raise ValidationError(str(exc), details={"video_path": payload.video_path}) from exc
     location = None
     if payload.latitude is not None and payload.longitude is not None:
         location = WKTElement(f"POINT({payload.longitude} {payload.latitude})", srid=4326)
@@ -118,6 +131,7 @@ def create_camera(payload: CameraCreate, db: Session = Depends(get_db)) -> Camer
         camera_type=payload.camera_type,
         rtsp_url=payload.rtsp_url,
         device_index=payload.device_index,
+        video_path=payload.video_path,
         resolution_width=payload.resolution_width,
         resolution_height=payload.resolution_height,
         fps=payload.fps,
@@ -254,6 +268,63 @@ async def upload_camera_frame(
     dest.write_bytes(content)
     logger.info("stored uploaded frame for camera %s at %s", camera.code, dest)
     return Message(message=f"frame stored for camera {camera.code}")
+
+
+@router.post(
+    "/{camera_id}/upload-video",
+    response_model=Message,
+    summary="Upload a video file (video-type cameras only) — becomes the camera feed",
+)
+async def upload_camera_video(
+    camera_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> Message:
+    camera = _get_camera(db, camera_id)
+    if camera.camera_type != "video":
+        raise ValidationError(
+            "Only video-type cameras accept video uploads",
+            details={"camera_id": camera.id, "camera_type": camera.camera_type},
+        )
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in ALLOWED_VIDEO_EXTENSIONS:
+        raise ValidationError(
+            f"Unsupported video type {suffix!r}; allowed: {sorted(ALLOWED_VIDEO_EXTENSIONS)}"
+        )
+    content = await file.read()
+    if len(content) > MAX_VIDEO_UPLOAD_BYTES:
+        raise ValidationError(
+            f"Upload too large ({len(content)} bytes; max {MAX_VIDEO_UPLOAD_BYTES}).",
+            details={"max_bytes": MAX_VIDEO_UPLOAD_BYTES},
+        )
+
+    settings = get_settings()
+    dest_dir = video_dir(settings.data_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%f")
+    original = Path(file.filename or f"video{suffix}").stem or "video"
+    safe_stem = (
+        "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in original)[:80] or "video"
+    )
+    dest = dest_dir / f"{stamp}_{safe_stem}{suffix}"
+    dest.write_bytes(content)
+    try:
+        dest.resolve().relative_to(dest_dir.resolve())
+    except ValueError as exc:  # pragma: no cover - defensive
+        dest.unlink(missing_ok=True)
+        raise ValidationError("Invalid destination for uploaded video") from exc
+
+    # Drop any cached provider so the next read opens the new file.
+    manager.drop_provider(camera.id)
+    camera.video_path = dest.name
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        dest.unlink(missing_ok=True)
+        raise ConflictError("Could not link uploaded video to the camera") from exc
+    logger.info("stored video for camera %s at %s", camera.code, dest)
+    return Message(message=f"video stored for camera {camera.code} as {dest.name}")
 
 
 # ---------------------------------------------------------------------------

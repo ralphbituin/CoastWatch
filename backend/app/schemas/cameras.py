@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-CameraType = Literal["rtsp", "usb", "upload"]
+CameraType = Literal["rtsp", "usb", "upload", "video"]
 
 
 class CameraCreate(BaseModel):
@@ -19,6 +19,8 @@ class CameraCreate(BaseModel):
     rtsp_url: str | None = Field(default=None, max_length=500)
     # USB device index (OpenCV VideoCapture index).
     device_index: int | None = Field(default=None, ge=0)
+    # Virtual video camera: video file name relative to DATA_DIR/videos/.
+    video_path: str | None = Field(default=None, max_length=500)
     resolution_width: int | None = Field(default=None, ge=1, le=16384)
     resolution_height: int | None = Field(default=None, ge=1, le=16384)
     fps: float | None = Field(default=None, gt=0, le=1000)
@@ -42,8 +44,15 @@ class CameraCreate(BaseModel):
             raise ValueError("rtsp_url is required for camera_type='rtsp'")
         if self.camera_type == "usb" and self.device_index is None:
             raise ValueError("device_index is required for camera_type='usb'")
-        if self.camera_type == "upload" and (self.rtsp_url or self.device_index is not None):
-            raise ValueError("upload cameras take neither rtsp_url nor device_index")
+        if self.camera_type == "upload" and (
+            self.rtsp_url or self.device_index is not None or self.video_path
+        ):
+            raise ValueError("upload cameras take neither rtsp_url, device_index nor video_path")
+        if self.camera_type == "video":
+            if not self.video_path or not self.video_path.strip():
+                raise ValueError("video_path is required for camera_type='video'")
+            if self.rtsp_url or self.device_index is not None:
+                raise ValueError("video cameras take neither rtsp_url nor device_index")
         return self
 
 
@@ -58,6 +67,7 @@ class CameraRead(BaseModel):
     # RTSP URLs may carry credentials — only the scheme and host are returned.
     rtsp_url_redacted: str | None
     device_index: int | None
+    video_path: str | None
     resolution_width: int | None
     resolution_height: int | None
     fps: float | None

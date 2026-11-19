@@ -43,13 +43,15 @@ class Camera(Base, TimestampMixin):
     code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
 
-    # "rtsp" | "usb" | "upload"
+    # "rtsp" | "usb" | "upload" | "video"
     camera_type: Mapped[str] = mapped_column(String(16), nullable=False)
 
     # RTSP transport (nullable — never log the full URL with credentials).
     rtsp_url: Mapped[str | None] = mapped_column(String(500))
     # USB device index (OpenCV VideoCapture index).
     device_index: Mapped[int | None] = mapped_column(Integer)
+    # Virtual video camera: path relative to DATA_DIR/videos/ (Phase 4 dev tooling).
+    video_path: Mapped[str | None] = mapped_column(String(500))
 
     resolution_width: Mapped[int | None] = mapped_column(Integer)
     resolution_height: Mapped[int | None] = mapped_column(Integer)

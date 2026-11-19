@@ -58,6 +58,17 @@ class DataUnavailableError(CoastWatchError):
     code = "data_unavailable"
 
 
+class ModelUnavailableError(CoastWatchError):
+    """No validated model artifact is available for this task.
+
+    Never silently replaced by a fabricated output. Train/validate one first
+    (see docs/MODEL_DOCUMENTATION.md) or use an operator-labelled input.
+    """
+
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    code = "model_unavailable"
+
+
 class DatabaseUnavailableError(CoastWatchError):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     code = "database_unavailable"
