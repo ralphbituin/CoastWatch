@@ -179,3 +179,78 @@ export interface Country {
   name: string;
   default_timezone: string;
 }
+
+// ---------------------------------------------------------------------------
+// Cameras module (mirrors backend Pydantic schemas)
+// ---------------------------------------------------------------------------
+
+export type CameraType = "rtsp" | "usb" | "upload";
+
+export interface Camera {
+  id: number;
+  code: string;
+  name: string;
+  monitoring_station_id: number;
+  station_code: string | null;
+  station_name: string | null;
+  camera_type: CameraType;
+  rtsp_url_redacted: string | null;
+  device_index: number | null;
+  resolution_width: number | null;
+  resolution_height: number | null;
+  fps: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  orientation_deg: number | null;
+  monitoring_region: Record<string, unknown> | null;
+  enabled: boolean;
+  active_calibration_id: number | null;
+  created_at: string;
+}
+
+export interface CameraStatus {
+  camera_id: number;
+  code: string;
+  enabled: boolean;
+  connected: boolean;
+  healthy: boolean;
+  message: string;
+  last_frame_at: string | null;
+  frames_captured: number;
+  checked_at: string;
+}
+
+export interface CameraQuality {
+  score: number;
+  is_black: boolean;
+  is_frozen: boolean;
+  is_blurry: boolean;
+  is_obstructed: boolean;
+  is_timestamp_inconsistent: boolean;
+  flags: string[];
+}
+
+export interface CameraTestConnectionResult {
+  camera_id: number;
+  ok: boolean;
+  message: string;
+  latency_ms: number | null;
+  frame_width: number | null;
+  frame_height: number | null;
+  captured_at: string | null;
+  quality: CameraQuality | null;
+}
+
+export interface CameraCalibration {
+  id: number;
+  camera_id: number;
+  version: number;
+  reference_points: Record<string, unknown> | null;
+  homography_matrix: unknown[][] | null;
+  meters_per_pixel: number | null;
+  is_active: boolean;
+  valid_from: string | null;
+  valid_to: string | null;
+  notes: string | null;
+  created_at: string;
+}
