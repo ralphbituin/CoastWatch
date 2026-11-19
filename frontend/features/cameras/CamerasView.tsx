@@ -26,7 +26,7 @@ import type {
   MonitoringStation,
 } from "@/lib/types";
 
-const CAMERA_TYPES: CameraType[] = ["rtsp", "usb", "upload"];
+const CAMERA_TYPES: CameraType[] = ["rtsp", "usb", "upload", "video"];
 
 export function CamerasView() {
   const [stations, setStations] = useState<MonitoringStation[]>([]);
@@ -49,6 +49,7 @@ export function CamerasView() {
     camera_type: "rtsp" as CameraType,
     rtsp_url: "",
     device_index: "",
+    video_path: "",
     resolution_width: "",
     resolution_height: "",
     fps: "",
@@ -126,6 +127,9 @@ export function CamerasView() {
       if (form.camera_type === "usb" && (deviceIndex === null || Number.isNaN(deviceIndex))) {
         throw new Error("A device index is required for USB cameras.");
       }
+      if (form.camera_type === "video" && !form.video_path.trim()) {
+        throw new Error("A video file path is required for video cameras (e.g. clip.mp4).");
+      }
       await camerasApi.create({
         code: form.code.trim(),
         name: form.name.trim(),
@@ -133,6 +137,7 @@ export function CamerasView() {
         camera_type: form.camera_type,
         rtsp_url: form.camera_type === "rtsp" ? form.rtsp_url.trim() : null,
         device_index: form.camera_type === "usb" ? deviceIndex : null,
+        video_path: form.camera_type === "video" ? form.video_path.trim() : null,
         resolution_width: num(form.resolution_width),
         resolution_height: num(form.resolution_height),
         fps: num(form.fps),
@@ -147,6 +152,7 @@ export function CamerasView() {
         camera_type: "rtsp",
         rtsp_url: "",
         device_index: "",
+        video_path: "",
         resolution_width: "",
         resolution_height: "",
         fps: "",
@@ -193,6 +199,23 @@ export function CamerasView() {
       await loadSelected(selected.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Frame upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uploadVideo = async (file: File) => {
+    if (!selected) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await camerasApi.uploadVideo(selected.id, file);
+      report("Video uploaded and linked to the camera.");
+      setFrameStamp(Date.now());
+      await loadSelected(selected.id);
+      await loadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Video upload failed");
     } finally {
       setBusy(false);
     }
@@ -261,7 +284,7 @@ export function CamerasView() {
   ));
 
   const typeBadge = (t: CameraType) =>
-    t === "rtsp" ? "RTSP" : t === "usb" ? "USB" : "Upload";
+    t === "rtsp" ? "RTSP" : t === "usb" ? "USB" : t === "video" ? "Video" : "Upload";
 
   return (
     <div className="space-y-6">
@@ -315,6 +338,7 @@ export function CamerasView() {
                           ? ` · ${camera.rtsp_url_redacted}`
                           : ""}
                         {camera.camera_type === "usb" ? ` · device ${camera.device_index}` : ""}
+                        {camera.camera_type === "video" ? ` · ${camera.video_path ?? "no video linked"}` : ""}
                       </span>
                     </span>
                     <StatusBadge tone={camera.enabled ? "ok" : "neutral"}>
@@ -366,6 +390,19 @@ export function CamerasView() {
                 type: "number",
                 placeholder: "0",
               })}
+            {form.camera_type === "video" && (
+              <div className="col-span-2">
+                {input(
+                  "Video file (relative to DATA_DIR/videos/)",
+                  form.video_path,
+                  (v) => setForm({ ...form, video_path: v }),
+                  { placeholder: "coastline_day1.mp4" },
+                )}
+                <p className="mt-1 text-xs text-slate-400">
+                  Or create the camera, then upload the file below — the upload replaces this path.
+                </p>
+              </div>
+            )}
             {form.camera_type === "upload" && (
               <p className="col-span-1 self-end text-xs text-slate-500">
                 Stills are uploaded from this page once the camera exists.
@@ -480,6 +517,22 @@ export function CamerasView() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) void uploadFrame(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+              {selected.camera_type === "video" && (
+                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50">
+                  <Upload className="h-4 w-4" aria-hidden />
+                  Upload video (MP4/MOV/AVI/MKV/WebM)
+                  <input
+                    type="file"
+                    accept=".mp4,.mov,.avi,.mkv,.webm"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void uploadVideo(file);
                       e.target.value = "";
                     }}
                   />

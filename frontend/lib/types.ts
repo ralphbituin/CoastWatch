@@ -184,7 +184,7 @@ export interface Country {
 // Cameras module (mirrors backend Pydantic schemas)
 // ---------------------------------------------------------------------------
 
-export type CameraType = "rtsp" | "usb" | "upload";
+export type CameraType = "rtsp" | "usb" | "upload" | "video";
 
 export interface Camera {
   id: number;
@@ -196,6 +196,7 @@ export interface Camera {
   camera_type: CameraType;
   rtsp_url_redacted: string | null;
   device_index: number | null;
+  video_path: string | null;
   resolution_width: number | null;
   resolution_height: number | null;
   fps: number | null;
@@ -247,6 +248,70 @@ export interface CameraCalibration {
   version: number;
   reference_points: Record<string, unknown> | null;
   homography_matrix: unknown[][] | null;
+  meters_per_pixel: number | null;
+  is_active: boolean;
+  valid_from: string | null;
+  valid_to: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Shorelines module (mirrors backend Pydantic schemas)
+// ---------------------------------------------------------------------------
+
+export type ShorelineSystemState =
+  | "NORMAL"
+  | "OBSERVED"
+  | "ANOMALY_DETECTED"
+  | "DATA_UNRELIABLE"
+  | "OFFICIAL_TSUNAMI_ADVISORY";
+
+export interface ShorelineObservationSummary {
+  camera_id: number;
+  camera_code: string | null;
+  observed_at: string;
+  monitoring_station_id: number;
+  station_code: string | null;
+  calibration_id: number | null;
+  calibrated_position_m: number | null;
+  segmentation_confidence: number | null;
+  frame_quality_score: number | null;
+  frame_quality_flags: string[] | null;
+  created_at: string;
+}
+
+export interface ShorelineObservationDetail extends ShorelineObservationSummary {
+  shoreline_geometry: [number, number][] | null;
+  source_frame_path: string | null;
+}
+
+export interface ShorelineObserveResult {
+  station_id: number;
+  camera_id: number;
+  observed_at: string;
+  actual_shoreline_m: number | null;
+  expected_shoreline_m: number | null;
+  residual_m: number | null;
+  retreat_velocity_m_s: number | null;
+  anomaly_score: number | null;
+  state: ShorelineSystemState;
+  details: Record<string, unknown>;
+}
+
+export interface ShorelineModuleStatus {
+  module: string;
+  phase: number;
+  segmentation_model_available: boolean;
+  implemented_endpoints: string[];
+  notes: string[];
+}
+
+export interface ShorelineCalibration {
+  id: number;
+  camera_id: number;
+  camera_code: string | null;
+  version: number;
   meters_per_pixel: number | null;
   is_active: boolean;
   valid_from: string | null;

@@ -47,6 +47,7 @@ export const camerasApi = {
     camera_type: CameraType;
     rtsp_url?: string | null;
     device_index?: number | null;
+    video_path?: string | null;
     resolution_width?: number | null;
     resolution_height?: number | null;
     fps?: number | null;
@@ -73,6 +74,15 @@ export const camerasApi = {
     const form = new FormData();
     form.append("file", file);
     return cameraRequest<{ message: string }>(`/cameras/${cameraId}/upload-frame`, {
+      method: "POST",
+      body: form,
+    });
+  },
+
+  uploadVideo: (cameraId: number, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return cameraRequest<{ message: string }>(`/cameras/${cameraId}/upload-video`, {
       method: "POST",
       body: form,
     });
