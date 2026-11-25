@@ -1,0 +1,742 @@
+{
+  "generated_at": "2026-11-25T06:21:16.121831+00:00",
+  "total_images": 531,
+  "total_groups": 89,
+  "old_images": 131,
+  "new_site_images": 400,
+  "class_pixels": {
+    "Beach": 142494887,
+    "Ocean": 190949266,
+    "Sky": 148823711,
+    "ignore": 245565736
+  },
+  "class_fraction": {
+    "Beach": 0.2954683437086739,
+    "Ocean": 0.3959402652630406,
+    "Sky": 0.3085913910282855
+  },
+  "splits": {
+    "train": {
+      "images": 371,
+      "sites": [
+        "Karon Beach (original)",
+        "curacao - klein beach",
+        "korea - gwangalli beach",
+        "korea - songjeon beach",
+        "thailand - koh samui",
+        "thailand - koh samui el gaucho",
+        "thailand - koh samui left pan",
+        "usa - myrtle beach south carolina"
+      ],
+      "class_pixels": {
+        "Beach": 101259076,
+        "Ocean": 130152988,
+        "Sky": 83618098
+      }
+    },
+    "val": {
+      "images": 60,
+      "sites": [
+        "Karon Beach (original)",
+        "curacao - playa lagun"
+      ],
+      "class_pixels": {
+        "Beach": 13750152,
+        "Ocean": 25670667,
+        "Sky": 24093936
+      }
+    },
+    "test": {
+      "images": 100,
+      "sites": [
+        "Karon Beach (original)",
+        "japan - shirahama",
+        "usa - turquoise beach alabama"
+      ],
+      "class_pixels": {
+        "Beach": 27485659,
+        "Ocean": 35125611,
+        "Sky": 41111677
+      }
+    }
+  },
+  "sites": [
+    {
+      "site": "curacao - klein beach",
+      "split": "train",
+      "source_pairs": 40,
+      "included": 40,
+      "excluded_duplicates": 0,
+      "class_pixels": {
+        "Beach": 29559777,
+        "Ocean": 7656751,
+        "Sky": 14135916,
+        "ignore": 22375556
+      },
+      "ignore_pixels": 22375556,
+      "polygon_coverage_median": 0.704267578125,
+      "polygon_coverage_min": 0.6062386067708333,
+      "polygon_coverage_mean": 0.6965120985243056,
+      "mapping_evidence": {
+        "sky": {
+          "expected_source_value": 0,
+          "dominant_mask_value": 0,
+          "distribution": {
+            "0": 358982
+          }
+        },
+        "ocean": {
+          "expected_source_value": 1,
+          "dominant_mask_value": 1,
+          "distribution": {
+            "1": 227033
+          }
+        },
+        "beach": {
+          "expected_source_value": 2,
+          "dominant_mask_value": 2,
+          "distribution": {
+            "2": 694655
+          }
+        }
+      }
+    },
+    {
+      "site": "curacao - playa lagun",
+      "split": "val",
+      "source_pairs": 40,
+      "included": 40,
+      "excluded_duplicates": 0,
+      "class_pixels": {
+        "Beach": 8368765,
+        "Ocean": 14412355,
+        "Sky": 17020229,
+        "ignore": 33926651
+      },
+      "ignore_pixels": 33926651,
+      "polygon_coverage_median": 0.5387985568576389,
+      "polygon_coverage_min": 0.5095513237847222,
+      "polygon_coverage_mean": 0.539840345594618,
+      "mapping_evidence": {
+        "sky": {
+          "expected_source_value": 0,
+          "dominant_mask_value": 0,
+          "distribution": {
+            "0": 431011
+          }
+        },
+        "ocean": {
+          "expected_source_value": 1,
+          "dominant_mask_value": 1,
+          "distribution": {
+            "1": 455289
+          }
+        },
+        "beach": {
+          "expected_source_value": 2,
+          "dominant_mask_value": 2,
+          "distribution": {
+            "1": 454,
+            "2": 94265
+          }
+        }
+      }
+    },
+    {
+      "site": "japan - shirahama",
+      "split": "test",
+      "source_pairs": 40,
+      "included": 40,
+      "excluded_duplicates": 0,
+      "class_pixels": {
+        "Beach": 9585270,
+        "Ocean": 16918128,
+        "Sky": 30495482,
+        "ignore": 25945120
+      },
+      "ignore_pixels": 25945120,
+      "polygon_coverage_median": 0.6775325520833333,
+      "polygon_coverage_min": 0.6314457947530864,
+      "polygon_coverage_mean": 0.6871971450617285,
+      "mapping_evidence": {
+        "sky": {
+          "expected_source_value": 0,
+          "dominant_mask_value": 0,
+          "distribution": {
+            "0": 669167
+          }
+        },
+        "ocean": {
+          "expected_source_value": 1,
+          "dominant_mask_value": 1,
+          "distribution": {
+            "1": 378464
+          }
+        },
+        "beach": {
+          "expected_source_value": 2,
+          "dominant_mask_value": 2,
+          "distribution": {
+            "0": 10,
+            "2": 291647
+          }
+        }
+      }
+    },
+    {
+      "site": "korea - gwangalli beach",
+      "split": "train",
+      "source_pairs": 40,
+      "included": 40,
+      "excluded_duplicates": 0,
+      "class_pixels": {
+        "Beach": 4939549,
+        "Ocean": 12986708,
+        "Sky": 13162595,
+        "ignore": 5775148
+      },
+      "ignore_pixels": 5775148,
+      "polygon_coverage_median": 0.8428976779513889,
+      "polygon_coverage_min": 0.7278591579861111,
+      "polygon_coverage_mean": 0.8433390842013889,
+      "mapping_evidence": {
+        "sky": {
+          "expected_source_value": 0,
+          "dominant_mask_value": 0,
+          "distribution": {
+            "0": 324770
+          }
+        },
+        "ocean": {
+          "expected_source_value": 1,
+          "dominant_mask_value": 1,
+          "distribution": {
+            "1": 312011
+          }
+        },
+        "beach": {
+          "expected_source_value": 2,
+          "dominant_mask_value": 2,
+          "distribution": {
+            "2": 140723
+          }
+        }
+      }
+    },
+    {
+      "site": "korea - songjeon beach",
+      "split": "train",
+      "source_pairs": 40,
+      "included": 40,
+      "excluded_duplicates": 0,
+      "class_pixels": {
+        "Beach": 10380443,
+        "Ocean": 7700108,
+        "Sky": 5685630,
+        "ignore": 13097819
+      },
+      "ignore_pixels": 13097819,
+      "polygon_coverage_median": 0.6473714192708333,
+      "polygon_coverage_min": 0.6051236979166666,
+      "polygon_coverage_mean": 0.6446989203559028,
+      "mapping_evidence": {
+        "sky": {
+          "expected_source_value": 0,
+          "dominant_mask_value": 0,
+          "distribution": {
+            "0": 148423
+          }
+        },
+        "ocean": {
+          "expected_source_value": 1,
+          "dominant_mask_value": 1,
+          "distribution": {
+            "1": 152124
+          }
+        },
+        "beach": {
+          "expected_source_value": 2,
+          "dominant_mask_value": 2,
+          "distribution": {
+            "1": 529,
+            "2": 281748
+          }
+        }
+      }
+    },
+    {
+      "site": "thailand - koh samui",
+      "split": "train",
+      "source_pairs": 40,
+      "included": 40,
+      "excluded_duplicates": 0,
+      "class_pixels": {
+        "Beach": 8077893,
+        "Ocean": 8792295,
+        "Sky": 1725689,
+        "ignore": 18268123
+      },
+      "ignore_pixels": 18268123,
+      "polygon_coverage_median": 0.506748046875,
+      "polygon_coverage_min": 0.4799924045138889,
+      "polygon_coverage_mean": 0.5044454481336806,
+      "mapping_evidence": {
+        "sky": {
+          "expected_source_value": 0,
+          "dominant_mask_value": 0,
+          "distribution": {
+            "0": 43035
+          }
+        },
+        "ocean": {
+          "expected_source_value": 1,
+          "dominant_mask_value": 1,
+          "distribution": {
+            "1": 130985
+          }
+        },
+        "beach": {
+          "expected_source_value": 2,
+          "dominant_mask_value": 2,
+          "distribution": {
+            "1": 19,
+            "2": 295064
+          }
+        }
+      }
+    },
+    {
+      "site": "thailand - koh samui el gaucho",
+      "split": "train",
+      "source_pairs": 40,
+      "included": 40,
+      "excluded_duplicates": 0,
+      "class_pixels": {
+        "Beach": 8790686,
+        "Ocean": 7347238,
+        "Sky": 11395036,
+        "ignore": 9331040
+      },
+      "ignore_pixels": 9331040,
+      "polygon_coverage_median": 0.7449207899305555,
+      "polygon_coverage_min": 0.7140831163194444,
+      "polygon_coverage_mean": 0.7468793402777778,
+      "mapping_evidence": {
+        "sky": {
+          "expected_source_value": 0,
+          "dominant_mask_value": 0,
+          "distribution": {
+            "0": 310931
+          }
+        },
+        "ocean": {
+          "expected_source_value": 1,
+          "dominant_mask_value": 1,
+          "distribution": {
+            "1": 159288
+          }
+        },
+        "beach": {
+          "expected_source_value": 2,
+          "dominant_mask_value": 2,
+          "distribution": {
+            "2": 244866
+          }
+        }
+      }
+    },
+    {
+      "site": "thailand - koh samui left pan",
+      "split": "train",
+      "source_pairs": 40,
+      "included": 40,
+      "excluded_duplicates": 0,
+      "class_pixels": {
+        "Beach": 7070694,
+        "Ocean": 16443985,
+        "Sky": 3866578,
+        "ignore": 32522743
+      },
+      "ignore_pixels": 32522743,
+      "polygon_coverage_median": 0.5086810378086419,
+      "polygon_coverage_min": 0.3817525077160494,
+      "polygon_coverage_mean": 0.486662727261767,
+      "mapping_evidence": {
+        "sky": {
+          "expected_source_value": 0,
+          "dominant_mask_value": 0,
+          "distribution": {
+            "0": 155932
+          }
+        },
+        "ocean": {
+          "expected_source_value": 1,
+          "dominant_mask_value": 1,
+          "distribution": {
+            "1": 420934
+          }
+        },
+        "beach": {
+          "expected_source_value": 2,
+          "dominant_mask_value": 2,
+          "distribution": {
+            "1": 123,
+            "2": 287762
+          }
+        }
+      }
+    },
+    {
+      "site": "usa - myrtle beach south carolina",
+      "split": "train",
+      "source_pairs": 40,
+      "included": 40,
+      "excluded_duplicates": 0,
+      "class_pixels": {
+        "Beach": 12908075,
+        "Ocean": 28355646,
+        "Sky": 7877053,
+        "ignore": 33803226
+      },
+      "ignore_pixels": 33803226,
+      "polygon_coverage_median": 0.594989631558642,
+      "polygon_coverage_min": 0.5762572337962963,
+      "polygon_coverage_mean": 0.5924572482638889,
+      "mapping_evidence": {
+        "sky": {
+          "expected_source_value": 0,
+          "dominant_mask_value": 0,
+          "distribution": {
+            "0": 198543
+          }
+        },
+        "ocean": {
+          "expected_source_value": 1,
+          "dominant_mask_value": 1,
+          "distribution": {
+            "1": 654864
+          }
+        },
+        "beach": {
+          "expected_source_value": 2,
+          "dominant_mask_value": 2,
+          "distribution": {
+            "2": 380565
+          }
+        }
+      }
+    },
+    {
+      "site": "usa - turquoise beach alabama",
+      "split": "test",
+      "source_pairs": 40,
+      "included": 40,
+      "excluded_duplicates": 0,
+      "class_pixels": {
+        "Beach": 13081027,
+        "Ocean": 8154498,
+        "Sky": 4244894,
+        "ignore": 11383581
+      },
+      "ignore_pixels": 11383581,
+      "polygon_coverage_median": 0.6778917100694445,
+      "polygon_coverage_min": 0.5827723524305556,
+      "polygon_coverage_mean": 0.6912006022135417,
+      "mapping_evidence": {
+        "sky": {
+          "expected_source_value": 0,
+          "dominant_mask_value": 0,
+          "distribution": {
+            "0": 105706
+          }
+        },
+        "ocean": {
+          "expected_source_value": 1,
+          "dominant_mask_value": 1,
+          "distribution": {
+            "1": 211437
+          }
+        },
+        "beach": {
+          "expected_source_value": 2,
+          "dominant_mask_value": 2,
+          "distribution": {
+            "1": 831,
+            "2": 441136
+          }
+        }
+      }
+    }
+  ],
+  "mapping_verified": true,
+  "mapping_evidence": {
+    "curacao - klein beach": {
+      "sky": {
+        "expected_source_value": 0,
+        "dominant_mask_value": 0,
+        "distribution": {
+          "0": 358982
+        }
+      },
+      "ocean": {
+        "expected_source_value": 1,
+        "dominant_mask_value": 1,
+        "distribution": {
+          "1": 227033
+        }
+      },
+      "beach": {
+        "expected_source_value": 2,
+        "dominant_mask_value": 2,
+        "distribution": {
+          "2": 694655
+        }
+      }
+    },
+    "curacao - playa lagun": {
+      "sky": {
+        "expected_source_value": 0,
+        "dominant_mask_value": 0,
+        "distribution": {
+          "0": 431011
+        }
+      },
+      "ocean": {
+        "expected_source_value": 1,
+        "dominant_mask_value": 1,
+        "distribution": {
+          "1": 455289
+        }
+      },
+      "beach": {
+        "expected_source_value": 2,
+        "dominant_mask_value": 2,
+        "distribution": {
+          "1": 454,
+          "2": 94265
+        }
+      }
+    },
+    "japan - shirahama": {
+      "sky": {
+        "expected_source_value": 0,
+        "dominant_mask_value": 0,
+        "distribution": {
+          "0": 669167
+        }
+      },
+      "ocean": {
+        "expected_source_value": 1,
+        "dominant_mask_value": 1,
+        "distribution": {
+          "1": 378464
+        }
+      },
+      "beach": {
+        "expected_source_value": 2,
+        "dominant_mask_value": 2,
+        "distribution": {
+          "0": 10,
+          "2": 291647
+        }
+      }
+    },
+    "korea - gwangalli beach": {
+      "sky": {
+        "expected_source_value": 0,
+        "dominant_mask_value": 0,
+        "distribution": {
+          "0": 324770
+        }
+      },
+      "ocean": {
+        "expected_source_value": 1,
+        "dominant_mask_value": 1,
+        "distribution": {
+          "1": 312011
+        }
+      },
+      "beach": {
+        "expected_source_value": 2,
+        "dominant_mask_value": 2,
+        "distribution": {
+          "2": 140723
+        }
+      }
+    },
+    "korea - songjeon beach": {
+      "sky": {
+        "expected_source_value": 0,
+        "dominant_mask_value": 0,
+        "distribution": {
+          "0": 148423
+        }
+      },
+      "ocean": {
+        "expected_source_value": 1,
+        "dominant_mask_value": 1,
+        "distribution": {
+          "1": 152124
+        }
+      },
+      "beach": {
+        "expected_source_value": 2,
+        "dominant_mask_value": 2,
+        "distribution": {
+          "1": 529,
+          "2": 281748
+        }
+      }
+    },
+    "thailand - koh samui": {
+      "sky": {
+        "expected_source_value": 0,
+        "dominant_mask_value": 0,
+        "distribution": {
+          "0": 43035
+        }
+      },
+      "ocean": {
+        "expected_source_value": 1,
+        "dominant_mask_value": 1,
+        "distribution": {
+          "1": 130985
+        }
+      },
+      "beach": {
+        "expected_source_value": 2,
+        "dominant_mask_value": 2,
+        "distribution": {
+          "1": 19,
+          "2": 295064
+        }
+      }
+    },
+    "thailand - koh samui el gaucho": {
+      "sky": {
+        "expected_source_value": 0,
+        "dominant_mask_value": 0,
+        "distribution": {
+          "0": 310931
+        }
+      },
+      "ocean": {
+        "expected_source_value": 1,
+        "dominant_mask_value": 1,
+        "distribution": {
+          "1": 159288
+        }
+      },
+      "beach": {
+        "expected_source_value": 2,
+        "dominant_mask_value": 2,
+        "distribution": {
+          "2": 244866
+        }
+      }
+    },
+    "thailand - koh samui left pan": {
+      "sky": {
+        "expected_source_value": 0,
+        "dominant_mask_value": 0,
+        "distribution": {
+          "0": 155932
+        }
+      },
+      "ocean": {
+        "expected_source_value": 1,
+        "dominant_mask_value": 1,
+        "distribution": {
+          "1": 420934
+        }
+      },
+      "beach": {
+        "expected_source_value": 2,
+        "dominant_mask_value": 2,
+        "distribution": {
+          "1": 123,
+          "2": 287762
+        }
+      }
+    },
+    "usa - myrtle beach south carolina": {
+      "sky": {
+        "expected_source_value": 0,
+        "dominant_mask_value": 0,
+        "distribution": {
+          "0": 198543
+        }
+      },
+      "ocean": {
+        "expected_source_value": 1,
+        "dominant_mask_value": 1,
+        "distribution": {
+          "1": 654864
+        }
+      },
+      "beach": {
+        "expected_source_value": 2,
+        "dominant_mask_value": 2,
+        "distribution": {
+          "2": 380565
+        }
+      }
+    },
+    "usa - turquoise beach alabama": {
+      "sky": {
+        "expected_source_value": 0,
+        "dominant_mask_value": 0,
+        "distribution": {
+          "0": 105706
+        }
+      },
+      "ocean": {
+        "expected_source_value": 1,
+        "dominant_mask_value": 1,
+        "distribution": {
+          "1": 211437
+        }
+      },
+      "beach": {
+        "expected_source_value": 2,
+        "dominant_mask_value": 2,
+        "distribution": {
+          "1": 831,
+          "2": 441136
+        }
+      }
+    }
+  },
+  "excluded_duplicates": [],
+  "polygon_coverage": {
+    "median": 0.6420405936535494,
+    "min": 0.3817525077160494,
+    "mean": 0.64332329598886
+  },
+  "policy": {
+    "source_mapping": {
+      "0": {
+        "name": "sky",
+        "target": 2
+      },
+      "1": {
+        "name": "ocean",
+        "target": 1
+      },
+      "2": {
+        "name": "beach",
+        "target": 0
+      },
+      "255": {
+        "name": "ignore",
+        "target": 255
+      }
+    },
+    "unlabeled": "pixels outside the polygon union -> ignore 255",
+    "old_splits": "preserved from the base manifest",
+    "new_splits": "assigned per site; whole site kept in one split"
+  },
+  "warnings": [
+    "New site masks are automatic SAM3 annotations and have not been manually reviewed frame by frame; site-held-out test metrics are the only quality evidence."
+  ]
+}
