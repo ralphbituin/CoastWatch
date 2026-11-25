@@ -12,11 +12,11 @@ import { API_BASE_URL } from "@/lib/config";
 
 const ROADMAP = [
   { phase: 1, module: "Foundation", status: "complete" },
-  { phase: 2, module: "Tide prediction engine", status: "planned" },
-  { phase: 3, module: "Camera integration", status: "planned" },
-  { phase: 4, module: "Shoreline computer vision", status: "planned" },
-  { phase: 5, module: "Tide-aware baseline", status: "planned" },
-  { phase: 6, module: "Anomaly detection", status: "planned" },
+  { phase: 2, module: "Tide prediction engine", status: "complete" },
+  { phase: 3, module: "Camera integration", status: "complete" },
+  { phase: 4, module: "Shoreline computer vision", status: "complete" },
+  { phase: 5, module: "Tide-aware baseline", status: "complete" },
+  { phase: 6, module: "Anomaly detection", status: "on progress" },
   { phase: 7, module: "Monitoring dashboard", status: "planned" },
   { phase: 8, module: "Testing & validation", status: "planned" },
   { phase: 9, module: "Edge deployment", status: "planned" },
