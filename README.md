@@ -50,6 +50,35 @@ cd backend && pytest                       # unit tests (integration tests skip 
 #   $env:COASTWATCH_INTEGRATION=1   (PowerShell)  then  pytest
 ```
 
+### Segmentation model (SegFormer MiT-B2)
+
+The active shoreline segmenter is a three-class **SegFormer MiT-B2** ONNX
+artifact (`Beach 0 / Ocean 1 / Sky 2`). It is provisioned, not committed:
+
+```powershell
+# verify/export the active fine-tuned checkpoint and run the 20-frame parity gate
+ml/.venv/Scripts/python.exe -m ml.src.inference.export_onnx `
+  ml/checkpoints/segformer_b2_multisite/best.pt --segformer `
+  --allow-different-checkpoint --version 2.1.0 `
+  --config ml/configs/segformer_b2_multisite.yaml `
+  --metrics ml/outputs/segformer_b2_multisite/evaluation/evaluation_report.json `
+  --dataset-summary ml/datasets/coastwatch_segformer_multisite/dataset_summary.json
+
+# the backend reads MODEL_PATH/shoreline-segmentation/{model.onnx,config.json}
+# default MODEL_PATH = ./ml/models ; Docker mount = /app/models
+```
+
+Model checkpoint: `ml/checkpoints/segformer_b2_multisite/best.pt` (SHA-256
+`F598031A1A5891C64EDA8F8D58BF56E8398528BDF457C9336D5741594C0C8A20`, epoch 8,
+artifact version 2.1.0). The baseline v2.0.0 artifact is archived under
+`ml/models/archive/segformer_b2_baseline_v2.0.0/` for rollback.
+The binary water mask is Ocean only; the shoreline is the Ocean/Beach boundary
+and never the Sky/Ocean horizon. If no artifact is present, observations fall
+back to operator-labelled masks and are reported honestly as
+`DATA_UNRELIABLE`; no placeholder prediction is shown. See
+[`docs/MODEL_DOCUMENTATION.md`](docs/MODEL_DOCUMENTATION.md) and
+[`ml/COASTWATCH_INTEGRATION.md`](ml/COASTWATCH_INTEGRATION.md).
+
 ### Documentation
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — components, data flow, module boundaries
 - [`docs/DATA_QUALITY.md`](docs/DATA_QUALITY.md) — how unreliable data is represented
@@ -64,7 +93,7 @@ cd backend && pytest                       # unit tests (integration tests skip 
 backend/    FastAPI app, Alembic migrations, tests, ops scripts
 frontend/   Next.js 14 dashboard (App Router, TypeScript, Tailwind)
 data/       tide datasets, sample images/videos, processed artifacts
-ml/         datasets, models, training, evaluation
+ml/         datasets, manifests, models, src/ (data, training, evaluation, inference)
 docs/       architecture, API, model and dataset documentation
 ```
 
@@ -89,9 +118,9 @@ See [`DEVELOPMENT_PROGRESS.md`](DEVELOPMENT_PROGRESS.md) for status.
 | Component | Technology |
 |---|---|
 | Backend | Python, FastAPI, Pydantic |
-| Computer Vision | OpenCV, PyTorch |
-| Segmentation Models | U-Net, DeepLabV3+ |
-| Model Inference | ONNX Runtime |
+| Computer Vision | OpenCV, PyTorch (training) |
+| Segmentation Model | SegFormer MiT-B2 (active); U-Net/DeepLabV3+ (legacy training) |
+| Model Inference | ONNX Runtime (FP32 CUDA/CPU) |
 | Data Processing | NumPy, Pandas, SciPy |
 | Anomaly Detection | Scikit-learn |
 | Database | PostgreSQL, TimescaleDB, PostGIS |
