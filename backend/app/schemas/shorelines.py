@@ -24,12 +24,35 @@ class ShorelineObservationRead(BaseModel):
     station_code: str | None
     calibration_id: int | None
     shoreline_geometry: list[list[float]] | None
+    # Ordered segments; each segment is an ordered [[x, y], ...] polyline.
+    # Optional so pre-existing clients keep working and historical rows remain
+    # readable (NULL means the observation predates segment persistence).
+    shoreline_segments: list[list[list[float]]] | None = None
     calibrated_position_m: float | None
     segmentation_confidence: float | None
     frame_quality_score: float | None
     frame_quality_flags: list[Any] | None
     source_frame_path: str | None
     created_at: datetime
+    # Phase 5 video provenance (optional for historical rows).
+    recording_id: str | None = None
+    frame_index: int | None = None
+    extraction_status: str | None = None
+    extraction_reason: str | None = None
+    shoreline_position_px: float | None = None
+    signed_position_px: float | None = None
+    position_axis: str | None = None
+    position_sign: str | None = None
+    segment_count: int | None = None
+    segment_measurements: list[Any] | None = None
+    class_fractions: dict[str, Any] | None = None
+    inference_time_ms: float | None = None
+    capture_timestamp_source: str | None = None
+    capture_timestamp_confidence: float | None = None
+    horizon_y_px: float | None = None
+    elapsed_seconds: float | None = None
+    stream_session_id: str | None = None
+    ingest_latency_ms: float | None = None
 
 
 class ShorelineObservationSummary(BaseModel):
@@ -46,6 +69,21 @@ class ShorelineObservationSummary(BaseModel):
     frame_quality_score: float | None
     frame_quality_flags: list[Any] | None
     created_at: datetime
+    recording_id: str | None = None
+    frame_index: int | None = None
+    extraction_status: str | None = None
+    extraction_reason: str | None = None
+    shoreline_position_px: float | None = None
+    signed_position_px: float | None = None
+    position_axis: str | None = None
+    segment_count: int | None = None
+    inference_time_ms: float | None = None
+    horizon_y_px: float | None = None
+    capture_timestamp_source: str | None = None
+    capture_timestamp_confidence: float | None = None
+    elapsed_seconds: float | None = None
+    stream_session_id: str | None = None
+    ingest_latency_ms: float | None = None
 
 
 class ShorelineObservationDetail(ShorelineObservationRead):
@@ -76,6 +114,20 @@ class ShorelineModuleStatus(BaseModel):
     segmentation_model_available: bool
     implemented_endpoints: list[str]
     notes: list[str] = Field(default_factory=list)
+    # Model identity / contract. Optional so older clients keep working when
+    # no artifact is provisioned.
+    architecture: str | None = None
+    encoder: str | None = None
+    model_version: str | None = None
+    class_names: list[str] | None = None
+    class_ids: dict[str, int] | None = None
+    water_classes: list[int] | None = None
+    ignore_index: int | None = None
+    checkpoint_id: str | None = None
+    checkpoint_sha256: str | None = None
+    providers: list[str] = Field(default_factory=list)
+    precision: dict[str, Any] = Field(default_factory=dict)
+    limitations: list[str] = Field(default_factory=list)
 
 
 class ShorelineCalibrationRead(BaseModel):
@@ -105,3 +157,44 @@ class OperatorMaskUpload(BaseModel):
         if value is not None and abs(value[0]) + abs(value[1]) == 0.0:
             raise ValueError("seaward_axis must be non-zero")
         return value
+
+
+class ShorelineBaselineRead(BaseModel):
+    id: int
+    monitoring_station_id: int
+    camera_id: int | None
+    tide_station_id: int | None
+    recording_id: str | None
+    name: str
+    model_type: str
+    status: str | None
+    provisional: bool | None
+    reason: str | None
+    sample_count: int
+    is_active: bool
+    position_axis: str | None
+    position_sign: str | None
+    position_unit: str | None
+    detector_mode: str | None = None
+    r_squared: float | None
+    model_params: dict[str, Any] | None
+    prediction_interval: dict[str, Any] | None
+    valid_from: datetime | None
+    valid_to: datetime | None
+    notes: str | None
+    created_at: datetime
+
+
+class ShorelineBaselineStatus(BaseModel):
+    """Explicit availability, so "no baseline" can never look like a normal one."""
+
+    available: bool
+    status: str
+    reason: str | None = None
+    detector_mode: str | None = None
+    parameters: dict[str, Any] | None = None
+    experimental_notice: str = (
+        "Experimental baseline — insufficient recording history for validated "
+        "anomaly detection. A rolling baseline is not tide-aware."
+    )
+    baselines: list[ShorelineBaselineRead] = Field(default_factory=list)

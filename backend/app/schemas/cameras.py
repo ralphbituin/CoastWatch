@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-CameraType = Literal["rtsp", "usb", "upload", "video"]
+CameraType = Literal["rtsp", "usb", "upload", "video", "youtube_live"]
 
 
 class CameraCreate(BaseModel):
@@ -21,6 +21,11 @@ class CameraCreate(BaseModel):
     device_index: int | None = Field(default=None, ge=0)
     # Virtual video camera: video file name relative to DATA_DIR/videos/.
     video_path: str | None = Field(default=None, max_length=500)
+    # YouTube Live (public/authorized streams only). Query strings are never
+    # returned by the API and never logged.
+    youtube_url: str | None = Field(default=None, max_length=500)
+    stream_quality: str | None = Field(default=None, max_length=32)
+    stream_format: str | None = Field(default=None, max_length=32)
     resolution_width: int | None = Field(default=None, ge=1, le=16384)
     resolution_height: int | None = Field(default=None, ge=1, le=16384)
     fps: float | None = Field(default=None, gt=0, le=1000)
@@ -53,6 +58,23 @@ class CameraCreate(BaseModel):
                 raise ValueError("video_path is required for camera_type='video'")
             if self.rtsp_url or self.device_index is not None:
                 raise ValueError("video cameras take neither rtsp_url nor device_index")
+            if self.youtube_url:
+                raise ValueError("video cameras do not take youtube_url")
+        if self.camera_type == "youtube_live":
+            if not self.youtube_url or not self.youtube_url.strip():
+                raise ValueError("youtube_url is required for camera_type='youtube_live'")
+            if self.rtsp_url or self.device_index is not None or self.video_path:
+                raise ValueError(
+                    "youtube_live cameras take neither rtsp_url, device_index nor video_path"
+                )
+            from app.services.camera.youtube import validate_youtube_url
+
+            try:
+                self.youtube_url = validate_youtube_url(self.youtube_url)
+            except ValueError as exc:
+                raise ValueError(str(exc)) from exc
+        elif self.youtube_url:
+            raise ValueError("youtube_url is only valid for camera_type='youtube_live'")
         return self
 
 
@@ -68,6 +90,9 @@ class CameraRead(BaseModel):
     rtsp_url_redacted: str | None
     device_index: int | None
     video_path: str | None
+    youtube_url_redacted: str | None = None
+    stream_quality: str | None = None
+    stream_format: str | None = None
     resolution_width: int | None
     resolution_height: int | None
     fps: float | None
@@ -90,6 +115,46 @@ class CameraStatusRead(BaseModel):
     last_frame_at: datetime | None
     frames_captured: int
     checked_at: datetime
+    # --- Phase 7 live capture status (optional; absent for non-live clients) ---
+    is_live: bool | None = None
+    stream_state: str | None = None
+    stream_session_id: str | None = None
+    stream_recording_id: str | None = None
+    frames_persisted: int | None = None
+    frames_rejected: int | None = None
+    reconnect_count: int | None = None
+    last_error: str | None = None
+    last_rolling_classification: str | None = None
+    last_event_at: datetime | None = None
+    resolved_quality: str | None = None
+    resolved_format: str | None = None
+    experimental_notice: str = (
+        "Experimental monitoring prototype — not a validated tsunami detector. "
+        "Follow the official national tsunami warning authority."
+    )
+
+
+class CameraStreamStatusRead(BaseModel):
+    camera_id: int
+    state: str
+    session_id: str | None = None
+    recording_id: str | None = None
+    started_at: datetime | None = None
+    last_frame_at: datetime | None = None
+    frames_captured: int = 0
+    frames_persisted: int = 0
+    frames_rejected: int = 0
+    consecutive_failures: int = 0
+    reconnect_count: int = 0
+    last_error: str | None = None
+    last_rolling_classification: str | None = None
+    last_event_at: datetime | None = None
+    sample_interval_seconds: float = 30.0
+    is_live: bool | None = None
+    experimental_notice: str = (
+        "Experimental in-process live capture. YouTube Live timestamps are "
+        "wall-clock receipt times, not per-frame capture times."
+    )
 
 
 class CameraQualityRead(BaseModel):
@@ -111,6 +176,10 @@ class CameraTestConnectionResult(BaseModel):
     frame_height: int | None
     captured_at: datetime | None
     quality: CameraQualityRead | None
+    is_live: bool | None = None
+    resolved_format: str | None = None
+    resolved_quality: str | None = None
+    source_url_redacted: str | None = None
 
 
 class CameraCalibrationCreate(BaseModel):
