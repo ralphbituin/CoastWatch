@@ -1,0 +1,148 @@
+# CoastWatch SegFormer MiT-B2 — multi-site fine-tune
+# -----------------------------------------------------------------
+# Fine-tune the deployed 3-class checkpoint on the original 131 pairs plus the
+# 400 new per-site pairs. The deployed artifact under ml/models is NOT touched.
+#
+# Class schema and source mapping are identical to ml/configs/segformer_b2.yaml:
+#   target: 0 Beach, 1 Ocean, 2 Sky, 255 ignore
+#   source: 0 Sky, 1 Ocean, 2 Beach
+# New site masks also use the source order; the pipeline converts them and
+# marks pixels outside the polygon union as ignore.
+
+project:
+  name: coastwatch-segformer-b2-multisite
+  seed: 42
+  deterministic: true
+
+paths:
+  project_root: .
+  datasets_root: ml/datasets
+  # Already converted 131-pair baseline; its train/val/test split is preserved.
+  base_unified_dataset: ml/datasets/coastwatch_segformer
+  # New per-site collections: <site>/<frame>.png, <site>/<frame>.json, <site>/mask/<frame>.png
+  sites_root: ml/datasets/image_sam3
+  unified_dataset: ml/datasets/coastwatch_segformer_multisite
+  audit_dir: ml/outputs/audit_multisite
+  checkpoints: ml/checkpoints/segformer_b2_multisite
+  outputs: ml/outputs/segformer_b2_multisite
+
+data:
+  num_classes: 3
+  class_names: [Beach, Ocean, Sky]
+  class_colors:
+    Beach: [214, 181, 137]
+    Ocean: [32, 112, 190]
+    Sky: [135, 206, 235]
+  ignore_index: 255
+  image_size: 512
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+  datasets:
+    sam3:
+      display_name: CoastWatch SAM3 multi-site coastal imagery
+      enabled: true
+      annotation:
+        format: grayscale_class_id_png
+        unlabeled_policy: ignore_outside_polygons
+        source_values:
+          0: {name: sky, target: 2}
+          1: {name: ocean, target: 1}
+          2: {name: beach, target: 0}
+          255: {name: ignore, target: 255}
+
+  split:
+    # Original Karon rows keep the base manifest split. New sites are held out
+    # whole: no sequence frame from a site appears in more than one split.
+    site_split:
+      test:
+        - japan - shirahama
+        - usa - turquoise beach alabama
+      val:
+        - curacao - playa lagun
+      train:
+        - curacao - klein beach
+        - korea - gwangalli beach
+        - korea - songjeon beach
+        - thailand - koh samui
+        - thailand - koh samui el gaucho
+        - thailand - koh samui left pan
+        - usa - myrtle beach south carolina
+
+model:
+  architecture: SegFormer
+  encoder: MiT-B2
+  pretrained: nvidia/segformer-b2-finetuned-ade-512-512
+  num_labels: 3
+  ignore_index: 255
+  logits_upsample: bilinear
+
+training:
+  image_size: 512
+  batch_size: 2
+  gradient_accumulation_steps: 1
+  epochs: 25
+  # Lower than the original 6e-5: this is a fine-tune from the selected
+  # baseline checkpoint on new sites, not a from-scratch run.
+  learning_rate: 0.00002
+  weight_decay: 0.01
+  optimizer: adamw
+  precision: fp16
+  scheduler:
+    name: polynomial
+    power: 1.0
+    warmup_ratio: 0.05
+    warmup_steps: 0
+  loss:
+    name: cross_entropy
+    class_weights: auto
+    class_weight_cap: 3.0
+  gradient_clip_norm: 1.0
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: false
+  seed: 42
+  val_every: 1
+  early_stopping_patience: 0
+  selection_metric: val_mean_iou
+  log_every: 20
+
+augmentation:
+  horizontal_flip_p: 0.5
+  brightness_contrast_p: 0.5
+  brightness_limit: 0.12
+  contrast_limit: 0.12
+  hue_saturation_p: 0.25
+  hue_shift_limit: 5
+  saturation_shift_limit: 12
+  gaussian_noise_p: 0.20
+  gaussian_noise_var_limit: [0.0, 25.0]
+  gaussian_blur_p: 0.15
+  gaussian_blur_limit: [3, 3]
+  scale_crop_p: 0.50
+  scale_min: 0.90
+  scale_max: 1.00
+  crop_ratio_min: 0.90
+  crop_ratio_max: 1.111111
+
+evaluation:
+  batch_size: 2
+  num_workers: 2
+  evaluate_at_native_resolution: true
+  primary_metric: mean_iou
+  visual_sample_count: 12
+  conditions:
+    night_max_luma: 50
+    low_light_max_luma: 90
+    bright_min_luma: 170
+    glare_luma: 245
+    glare_fraction: 0.02
+
+inference:
+  input_size: [512, 512]
+  overlay_alpha: 0.45
+  shoreline:
+    min_ocean_component_px: 2000
+    min_beach_component_px: 1000
+    boundary_smoothing: 0
+    min_valid_columns: 8

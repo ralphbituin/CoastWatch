@@ -1,0 +1,30 @@
+# CoastWatch beach segmentation — training environment
+# Python 3.11. Install PyTorch first from the CUDA wheel index on GPU machines:
+#   pip install torch==2.5.1 torchvision==0.20.1 \
+#       --index-url https://download.pytorch.org/whl/cu124
+# then:
+#   pip install -r ml/requirements.txt
+#
+# CPU-only fallback: use the default PyPI torch wheels instead of the CUDA index.
+
+torch==2.5.1
+torchvision==0.20.1
+
+# SegFormer MiT-B2 (nvidia/segformer-b2-finetuned-ade-512-512) is loaded through
+# Hugging Face Transformers for training/export. The deployed backend needs only
+# onnxruntime; torch/transformers are not API runtime dependencies.
+transformers==4.46.3
+segmentation-models-pytorch==0.4.0
+albumentations==1.4.21
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.15.0
+scikit-learn==1.6.0
+Pillow==10.4.0
+PyYAML==6.0.2
+matplotlib==3.9.2
+tqdm==4.67.1
+tifffile==2024.9.20
+onnx==1.17.0
+onnxruntime==1.20.1

@@ -1,0 +1,140 @@
+# LEGACY four-class (unknown/land/water/foam) U-Net/DeepLabV3+ configuration.
+# Not the active CoastWatch configuration. The maintained three-class
+# SegFormer config is ml/configs/segformer_b2.yaml (see ml/README.md).
+# CoastWatch beach segmentation — training / inference configuration
+# Paths are relative to the repository root unless absolute.
+project:
+  name: coastwatch-beach-segmentation
+  schema_version: 1
+  seed: 42
+  deterministic: true
+
+paths:
+  datasets_root: ml/datasets
+  manifests: ml/manifests
+  checkpoints: ml/checkpoints
+  reports: ml/reports
+  models: ml/models
+  figures: ml/reports/figures
+
+data:
+  image_size: 512
+  batch_size: 8
+  num_workers: 4
+  pin_memory: true
+  num_classes: 4
+  ignore_index: 255
+  class_names: [unknown, land, water, foam]
+  water_classes: [2, 3]
+  datasets: [india_sandy_beach, sclabels]
+  splits: [train, val, test]
+
+model:
+  # Both architectures are trained and compared on the same splits.
+  architectures:
+    unet:
+      encoder: resnet34
+      encoder_weights: imagenet
+    deeplabv3plus:
+      encoder: resnet50
+      encoder_weights: imagenet
+  in_channels: 3
+
+training:
+  optimizer: adamw
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  epochs_per_stage: 50
+  scheduler: cosine
+  warmup_epochs: 1
+  mixed_precision: true
+  early_stopping_patience: 10
+  grad_clip_norm: 1.0
+  class_weighting: inverse_frequency
+  # How a stage's best checkpoint is chosen. ``negative_val_loss`` is used for
+  # the India stage because its masks annotate only sand (no negatives), which
+  # makes IoU degenerate there.
+  selection_metric: mean_dataset_iou
+  class_weight_max: 5.0
+  dice_weight: 0.5
+  ce_weight: 0.5
+  validate_every: 1
+  log_every: 25
+  # Joint stage: equal dataset representation per epoch (not proportional to
+  # dataset size) and a lower learning rate to limit catastrophic forgetting.
+  joint:
+    samples_per_epoch: 6000
+    learning_rate_scale: 0.2
+    dataset_balance: equal
+  stages:
+    - name: stage1_india_pretrain
+      datasets: [india_sandy_beach]
+      init_from: null
+      learning_rate: 0.0001
+      epochs: 50
+      selection_metric: negative_val_loss
+    - name: stage3_sclabels_adapt
+      datasets: [sclabels]
+      init_from: stage1_india_pretrain
+      learning_rate: 0.00005
+      epochs: 50
+    - name: stage4_joint_finetune
+      datasets: [india_sandy_beach, sclabels]
+      init_from: stage3_sclabels_adapt
+      learning_rate: 0.00002
+      epochs: 50
+      dataset_balance: equal
+      # India is excluded from selection: its masks contain no negative class,
+      # so precision there is unmeasurable and its IoU is degenerate.
+      selection_datasets: [sclabels]
+  # Webcam fine-tuning is a separate, explicitly labelled stage. It only runs
+  # when labelled masks exist under ml/datasets/image/labels.
+  webcam:
+    enabled: false
+    dataset: webcam_unlabelled
+    init_from: stage4_joint_finetune
+    learning_rate: 0.00001
+    epochs: 25
+
+evaluation:
+  batch_size: 8
+  num_workers: 2
+  boundary_tolerance_px: 2
+  shoreline_smoothing_window: 5
+  min_water_columns: 8
+  max_visual_samples_per_dataset: 5
+  primary_metric: mean_iou
+  # Foam has no ground-truth pixels in any provided dataset; metrics for it are
+  # reported as N/A rather than as a misleading 0 or 1.
+  unsupervised_classes: [3]
+
+inference:
+  input_size: [512, 512]
+  prefer_onnx: true
+  providers: [CUDAExecutionProvider, CPUExecutionProvider]
+  batch_size: 8
+  max_workers: 1
+  overlay_alpha: 0.45
+  draw_shoreline: true
+  output_probabilities: true
+  model_name: shoreline-segmentation
+
+# Preprocessing shared by training and evaluation. Image size lives in
+# data.image_size so it cannot drift from the model input.
+preprocessing:
+  imagenet_mean: [0.485, 0.456, 0.406]
+  imagenet_std: [0.229, 0.224, 0.225]
+  train_augmentation:
+    horizontal_flip_p: 0.5
+    rotate_limit_deg: 5
+    rotate_p: 0.5
+    brightness_contrast_p: 0.5
+    brightness_limit: 0.15
+    contrast_limit: 0.15
+    saturation_p: 0.3
+    saturation_limit: 0.15
+    scale_crop_p: 0.5
+    scale_min: 0.85
+    scale_max: 1.0
+    blur_p: 0.15
+    blur_limit: 3

@@ -1,0 +1,199 @@
+# CoastWatch SegFormer MiT-B2 — three-class coastal segmentation
+# -----------------------------------------------------------------
+# This is deliberately separate from ml/configs/config.yaml (the older
+# four-class unknown/land/water/foam pipeline). The model here predicts:
+#
+#   0 = Beach
+#   1 = Ocean
+#   2 = Sky
+#   255 = ignore (never a class logit; stored in masks and excluded from loss)
+#
+# The source dataset in image_sam3_mask uses a DIFFERENT class order:
+#   0 = Sky, 1 = Ocean, 2 = Beach
+# That mapping is verified against the polygon labels in image_sam3/*.json,
+# not against the stale image_sam3/labels/classes.json file. See the audit
+# report before changing it.
+
+project:
+  name: coastwatch-segformer-b2
+  seed: 42
+  deterministic: true
+
+paths:
+  project_root: .
+  datasets_root: ml/datasets
+  unified_dataset: ml/datasets/coastwatch_segformer
+  audit_dir: ml/outputs/audit
+  checkpoints: ml/checkpoints/segformer_b2
+  outputs: ml/outputs/segformer_b2
+
+data:
+  num_classes: 3
+  class_names: [Beach, Ocean, Sky]
+  class_colors:
+    Beach: [214, 181, 137]
+    Ocean: [32, 112, 190]
+    Sky: [135, 206, 235]
+  ignore_index: 255
+  image_size: 512
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+  datasets:
+    sam3:
+      display_name: CoastWatch SAM3 coastal CCTV annotations
+      enabled: true
+      root: ml/datasets
+      image_dir: image_sam3
+      mask_dir: image_sam3_mask
+      label_dir: image_sam3/labels
+      polygon_dir: image_sam3
+      image_exts: [.jpg, .jpeg, .png]
+      mask_exts: [.png]
+      annotation:
+        format: grayscale_class_id_png
+        # The PNG background is filled with 0, and the verified mapping says
+        # 0 = Sky. Pixels outside every annotation polygon are therefore
+        # unlabeled background (wet sand, swash zone, foreground), not Sky.
+        # They are converted to 255 (ignore) instead of being trained as Sky.
+        unlabeled_policy: ignore_outside_polygons
+        # Verified by rasterizing image_sam3/*.json polygons and intersecting
+        # them with the delivered PNG. See audit_report.json.
+        source_values:
+          0:
+            name: sky
+            target: 2
+            evidence: Sky polygons contain 99.995% mask value 0.
+          1:
+            name: ocean
+            target: 1
+            evidence: Ocean polygons contain 99.999% mask value 1.
+          2:
+            name: beach
+            target: 0
+            evidence: Beach polygons contain 82.4% value 2; the remaining
+              overlap is assigned to ocean by the delivered raster.
+          255:
+            name: ignore
+            target: 255
+            evidence: Reserved ignore index; absent from the current rasters.
+      documentation_conflict: >-
+        image_sam3/labels/classes.json describes RGB colours (magenta/white/
+        black/yellow) and a four-class unknown/water/land/foam schema. The
+        actual PNG rasters are 8-bit grayscale values 0/1/2 and the polygon
+        JSON labels are sky/ocean/beach. classes.json is stale; it is NOT used
+        for conversion.
+
+    sclabels:
+      display_name: SCLabels Spanish CoastSnap
+      enabled: true
+      root: ml/datasets
+      image_dir: images
+      mask_dir: masks
+      image_exts: [.jpg, .jpeg, .png]
+      mask_exts: [.png]
+      annotation:
+        format: unknown
+        status: blocked_no_masks
+        note: >-
+          The image directory contains 1,717 files but mask_dir is empty and
+          metadata.json is absent. No labels can be verified, so this dataset
+          is excluded from training and from the unified dataset. Do not
+          fabricate masks for it.
+
+  split:
+    train: 0.70
+    val: 0.15
+    test: 0.15
+    seed: 42
+    # Near-duplicate grouping is the only leakage protection supported by the
+    # available metadata. All timestamp-named frames are also kept together.
+    near_duplicate_phash_distance: 6
+    near_duplicate_dhash_distance: 4
+    exact_duplicate_policy: exclude_extra_copies
+
+model:
+  architecture: SegFormer
+  encoder: MiT-B2
+  pretrained: nvidia/segformer-b2-finetuned-ade-512-512
+  num_labels: 3
+  ignore_index: 255
+  # Hugging Face returns logits at 1/4 input resolution; the wrapper
+  # interpolates to the label size for the loss and metrics.
+  logits_upsample: bilinear
+
+training:
+  image_size: 512
+  batch_size: 2
+  gradient_accumulation_steps: 1
+  epochs: 40
+  learning_rate: 0.00006
+  weight_decay: 0.01
+  optimizer: adamw
+  precision: fp16
+  scheduler:
+    name: polynomial
+    power: 1.0
+    warmup_ratio: 0.05
+    # 0 means derive warmup steps from warmup_ratio.
+    warmup_steps: 0
+  loss:
+    name: cross_entropy
+    # Weighted CE is enabled because supervised pixels are imbalanced
+    # (~2.1:1 ocean:beach once unlabelled background is ignored, and ~1.6:1
+    # before weighting when all three classes are considered). Weights are
+    # inverse-frequency, normalised, capped at 3.
+    class_weights: auto
+    class_weight_cap: 3.0
+  gradient_clip_norm: 1.0
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: false
+  seed: 42
+  val_every: 1
+  # 0 disables early stopping so the requested 40-epoch schedule is honoured.
+  early_stopping_patience: 0
+  selection_metric: val_mean_iou
+  log_every: 10
+
+augmentation:
+  horizontal_flip_p: 0.5
+  brightness_contrast_p: 0.5
+  brightness_limit: 0.12
+  contrast_limit: 0.12
+  hue_saturation_p: 0.25
+  hue_shift_limit: 5
+  saturation_shift_limit: 12
+  gaussian_noise_p: 0.20
+  gaussian_noise_var_limit: [0.0, 25.0]
+  gaussian_blur_p: 0.15
+  gaussian_blur_limit: [3, 3]
+  scale_crop_p: 0.50
+  scale_min: 0.90
+  scale_max: 1.00
+  crop_ratio_min: 0.90
+  crop_ratio_max: 1.111111
+
+evaluation:
+  batch_size: 2
+  num_workers: 2
+  # Test metrics are computed at native image resolution after upsampling the
+  # model logits. They are never used for checkpoint selection.
+  evaluate_at_native_resolution: true
+  primary_metric: mean_iou
+  visual_sample_count: 12
+  conditions:
+    night_max_luma: 50
+    low_light_max_luma: 90
+    bright_min_luma: 170
+    glare_luma: 245
+    glare_fraction: 0.02
+
+inference:
+  input_size: [512, 512]
+  overlay_alpha: 0.45
+  shoreline:
+    min_ocean_component_px: 2000
+    min_beach_component_px: 1000
+    boundary_smoothing: 0
+    min_valid_columns: 8

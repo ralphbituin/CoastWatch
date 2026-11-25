@@ -1,0 +1,112 @@
+# CoastWatch beach segmentation — unified class schema and dataset mappings
+# ---------------------------------------------------------------------------
+# Canonical target classes (the model's 4 output channels):
+#   0 = unknown / ignore
+#   1 = land   (sand, beach, coastal land)
+#   2 = water  (ocean, sea, visible water)
+#   3 = foam   (whitewater / breaking waves)
+# 255 = ignore index used by the loss (and by evaluation).
+#
+# IMPORTANT — evidence-based mappings only:
+#   * A source class is mapped only when its semantic meaning is documented
+#     (dataset paper, provided labels file, or dataset metadata).
+#   * "Background", "sky", "living", "litter" and other non-land/non-water
+#     classes are NOT squeezed into land or water. They become ignore pixels.
+#   * The India chips are binary "sandy beach" masks. The background may be
+#     water, vegetation, built-up land or anything else, so 0 is ignored.
+#   * SCLabels' 1-px "Shoreline" band is an ambiguous transition, not water,
+#     and is ignored rather than forced into either side.
+#   * NO dataset in ml/datasets provides foam/whitewater annotations. Foam is
+#     kept in the schema for downstream compatibility but is unsupervised. It
+#     must not be reported as validated (see ml/reports/dataset_inspection.md).
+
+schema:
+  num_classes: 4
+  ignore_index: 255
+  classes:
+    0:
+      name: unknown
+      color: [40, 40, 40]
+      description: Invalid, unclassified or ambiguous pixels
+    1:
+      name: land
+      color: [210, 180, 140]
+      description: Sand, beach, coastal land
+    2:
+      name: water
+      color: [30, 110, 190]
+      description: Ocean, sea, visible water
+    3:
+      name: foam
+      color: [245, 245, 245]
+      description: Whitewater and breaking waves
+  # Water mask used by CoastWatch's per-column shoreline extractor
+  # (backend/app/services/vision/shoreline.py). Foam is treated as water for
+  # geometry only; it stays a separate class in the model output.
+  water_classes: [2, 3]
+
+datasets:
+  india_sandy_beach:
+    display_name: India Sandy Beach
+    root: ml/datasets
+    splits:
+      train: training_set
+      val: validation_set
+      test: testing_set
+    image_pattern: "{split}/images/*.tif"
+    mask_pattern: "{split}/masks/*.tif"
+    kind: multispectral
+    # The GeoTIFFs have 6 float32 bands. Bands 0-2 are visible reflectance-like
+    # channels (blue, green, red, inferred visually and by the derived-band
+    # algebra); bands 3-5 are *derived* indices, verified on the files:
+    #   band 3 = (b2 - b1) / (b1 + b2)
+    #   band 4 = (b0 - b2) / (b0 + b2)
+    #   band 5 = 0.47*b0 + 0.17*b1 + 0.40*b2
+    # No band descriptions are stored in the TIFF metadata, so this composite
+    # is documented as an inference, not as ground truth.
+    rgb_bands: [2, 1, 0]  # R, G, B channel indices
+    rgb_scale_percentiles: [2.0, 98.0]
+    nan_fill: 0.0
+    mask_values:
+      0:
+        target: 255
+        name: not_sandy_beach
+        reason: Binary beach mask; background is semantically unknown.
+      1:
+        target: 1
+        name: sandy_beach
+        reason: Annotated beach polygon.
+    supervised_classes: [1]
+    split_policy: provided
+    group_policy: none
+
+  sclabels:
+    display_name: SCLabels Spanish CoastSnap
+    root: ml/datasets
+    image_dir: images
+    mask_dir: masks
+    metadata: metadata.json
+    kind: rgb
+    # From metadata.json: 0 NoData, 25 NotClassified, 75 Landwards,
+    # 150 Seawards, 255 Shoreline.
+    mask_values:
+      0: {target: 255, name: NoData}
+      25: {target: 255, name: NotClassified}
+      75: {target: 1, name: Landwards}
+      150: {target: 2, name: Seawards}
+      255: {target: 255, name: Shoreline}
+    supervised_classes: [1, 2]
+    split_policy: chronological_per_site
+    group_policy: site
+
+  webcam_unlabelled:
+    display_name: Karon Beach webcam frames (unlabelled)
+    root: ml/datasets/image
+    image_dir: .
+    labels_dir: labels
+    kind: webcam
+    split_policy: provided_txt
+    group_policy: capture_session
+    note: >-
+      Qualitative / future fine-tuning only. There are no masks today, so this
+      set is never used for supervised training and no webcam metric is claimed.
