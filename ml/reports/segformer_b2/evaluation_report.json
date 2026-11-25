@@ -1,0 +1,1973 @@
+{
+  "generated_at": "2026-11-24T05:18:18.227897+00:00",
+  "checkpoint": "C:\\Users\\bitui\\Documents\\coastwatch\\ml\\checkpoints\\segformer_b2\\best.pt",
+  "checkpoint_epoch": 18,
+  "split": "test",
+  "num_images": 20,
+  "native_resolution_metrics": true,
+  "class_schema": {
+    "names": [
+      "Beach",
+      "Ocean",
+      "Sky"
+    ],
+    "ids": {
+      "Beach": 0,
+      "Ocean": 1,
+      "Sky": 2
+    },
+    "colors": {
+      "Beach": [
+        214,
+        181,
+        137
+      ],
+      "Ocean": [
+        32,
+        112,
+        190
+      ],
+      "Sky": [
+        135,
+        206,
+        235
+      ]
+    },
+    "ignore_index": 255
+  },
+  "metrics": {
+    "class_names": [
+      "Beach",
+      "Ocean",
+      "Sky"
+    ],
+    "ignore_index": 255,
+    "per_class": {
+      "Beach": {
+        "class_id": 0,
+        "support_pixels": 4819362,
+        "predicted_pixels": 4960037,
+        "iou": 0.9579662087920888,
+        "dice": 0.9785319118281195,
+        "precision": 0.9646555055940107,
+        "recall": 0.9928133640925915
+      },
+      "Ocean": {
+        "class_id": 1,
+        "support_pixels": 10052985,
+        "predicted_pixels": 9897806,
+        "iou": 0.9777133920187014,
+        "dice": 0.9887311234927979,
+        "precision": 0.99648184658297,
+        "recall": 0.9811000414304806
+      },
+      "Sky": {
+        "class_id": 2,
+        "support_pixels": 6371301,
+        "predicted_pixels": 6385805,
+        "iou": 0.9976439365895426,
+        "dice": 0.9988205788993209,
+        "precision": 0.9976862744790985,
+        "recall": 0.9999574655160697
+      }
+    },
+    "mean_iou": 0.9777745124667776,
+    "mean_dice": 0.9886945380734127,
+    "pixel_accuracy": 0.989412976528325,
+    "supervised_pixels": 21243648,
+    "confusion_matrix": [
+      [
+        4784727,
+        34635,
+        0
+      ],
+      [
+        175226,
+        9862984,
+        14775
+      ],
+      [
+        84,
+        187,
+        6371030
+      ]
+    ],
+    "split": "test"
+  },
+  "primary_metrics": {
+    "beach_iou": 0.9579662087920888,
+    "mean_iou": 0.9777745124667776,
+    "mean_iou_note": "dominated by the large, easy Ocean and Sky classes",
+    "shoreline_mae_px": {
+      "mean": 47.42534971570044,
+      "median": 14.032894736842104,
+      "p95": 157.39494177633222
+    }
+  },
+  "conditions": {
+    "night": {
+      "images": 0,
+      "metrics": null
+    },
+    "low_light": {
+      "images": 0,
+      "metrics": null
+    },
+    "normal_light": {
+      "images": 17,
+      "metrics": {
+        "class_names": [
+          "Beach",
+          "Ocean",
+          "Sky"
+        ],
+        "ignore_index": 255,
+        "per_class": {
+          "Beach": {
+            "class_id": 0,
+            "support_pixels": 4070860,
+            "predicted_pixels": 4209737,
+            "iou": 0.9509592938601988,
+            "dice": 0.9748632858234738,
+            "precision": 0.9587831733906418,
+            "recall": 0.9914919697557765
+          },
+          "Ocean": {
+            "class_id": 1,
+            "support_pixels": 9813413,
+            "predicted_pixels": 9662157,
+            "iou": 0.9776071359522212,
+            "dice": 0.98867678840722,
+            "precision": 0.9964153966862679,
+            "recall": 0.9810574567686084
+          },
+          "Sky": {
+            "class_id": 2,
+            "support_pixels": 4946503,
+            "predicted_pixels": 4958882,
+            "iou": 0.9974698354455344,
+            "dice": 0.9987333152623548,
+            "precision": 0.9974867318883571,
+            "recall": 0.999983018306064
+          }
+        },
+        "mean_iou": 0.9753454217526514,
+        "mean_dice": 0.9874244631643494,
+        "pixel_accuracy": 0.9882846038846195,
+        "supervised_pixels": 18830776,
+        "confusion_matrix": [
+          [
+            4036225,
+            34635,
+            0
+          ],
+          [
+            173428,
+            9627522,
+            12463
+          ],
+          [
+            84,
+            0,
+            4946419
+          ]
+        ],
+        "split": "test",
+        "condition_tags": [
+          "normal_light"
+        ]
+      }
+    },
+    "bright_sunlight": {
+      "images": 3,
+      "metrics": {
+        "class_names": [
+          "Beach",
+          "Ocean",
+          "Sky"
+        ],
+        "ignore_index": 255,
+        "per_class": {
+          "Beach": {
+            "class_id": 0,
+            "support_pixels": 748502,
+            "predicted_pixels": 750300,
+            "iou": 0.9976036252165801,
+            "dice": 0.9988003752330195,
+            "precision": 0.9976036252165801,
+            "recall": 1.0
+          },
+          "Ocean": {
+            "class_id": 1,
+            "support_pixels": 239572,
+            "predicted_pixels": 235649,
+            "iou": 0.9820778364941462,
+            "dice": 0.9909578911706343,
+            "precision": 0.9992064468764985,
+            "recall": 0.9828444058571119
+          },
+          "Sky": {
+            "class_id": 2,
+            "support_pixels": 1424798,
+            "predicted_pixels": 1426923,
+            "iou": 0.9982489086335321,
+            "dice": 0.9991236870647584,
+            "precision": 0.9983797303708749,
+            "recall": 0.9998687533250328
+          }
+        },
+        "mean_iou": 0.9926434567814195,
+        "mean_dice": 0.9962939844894706,
+        "pixel_accuracy": 0.9982191347075187,
+        "supervised_pixels": 2412872,
+        "confusion_matrix": [
+          [
+            748502,
+            0,
+            0
+          ],
+          [
+            1798,
+            235462,
+            2312
+          ],
+          [
+            0,
+            187,
+            1424611
+          ]
+        ],
+        "split": "test",
+        "condition_tags": [
+          "bright_sunlight"
+        ]
+      }
+    },
+    "strong_glare": {
+      "images": 3,
+      "metrics": {
+        "class_names": [
+          "Beach",
+          "Ocean",
+          "Sky"
+        ],
+        "ignore_index": 255,
+        "per_class": {
+          "Beach": {
+            "class_id": 0,
+            "support_pixels": 748502,
+            "predicted_pixels": 750300,
+            "iou": 0.9976036252165801,
+            "dice": 0.9988003752330195,
+            "precision": 0.9976036252165801,
+            "recall": 1.0
+          },
+          "Ocean": {
+            "class_id": 1,
+            "support_pixels": 239572,
+            "predicted_pixels": 235649,
+            "iou": 0.9820778364941462,
+            "dice": 0.9909578911706343,
+            "precision": 0.9992064468764985,
+            "recall": 0.9828444058571119
+          },
+          "Sky": {
+            "class_id": 2,
+            "support_pixels": 1424798,
+            "predicted_pixels": 1426923,
+            "iou": 0.9982489086335321,
+            "dice": 0.9991236870647584,
+            "precision": 0.9983797303708749,
+            "recall": 0.9998687533250328
+          }
+        },
+        "mean_iou": 0.9926434567814195,
+        "mean_dice": 0.9962939844894706,
+        "pixel_accuracy": 0.9982191347075187,
+        "supervised_pixels": 2412872,
+        "confusion_matrix": [
+          [
+            748502,
+            0,
+            0
+          ],
+          [
+            1798,
+            235462,
+            2312
+          ],
+          [
+            0,
+            187,
+            1424611
+          ]
+        ],
+        "split": "test",
+        "condition_tags": [
+          "strong_glare"
+        ]
+      }
+    },
+    "overcast_or_low_saturation": {
+      "images": 3,
+      "metrics": {
+        "class_names": [
+          "Beach",
+          "Ocean",
+          "Sky"
+        ],
+        "ignore_index": 255,
+        "per_class": {
+          "Beach": {
+            "class_id": 0,
+            "support_pixels": 177106,
+            "predicted_pixels": 177696,
+            "iou": 0.9853505679592636,
+            "dice": 0.9926212366333899,
+            "precision": 0.9909733477399604,
+            "recall": 0.9942746152021953
+          },
+          "Ocean": {
+            "class_id": 1,
+            "support_pixels": 1870279,
+            "predicted_pixels": 1863910,
+            "iou": 0.9955127283648258,
+            "dice": 0.9977513189610917,
+            "precision": 0.9994559823167427,
+            "recall": 0.9960524606221852
+          },
+          "Sky": {
+            "class_id": 2,
+            "support_pixels": 2612767,
+            "predicted_pixels": 2618546,
+            "iou": 0.9977907612192859,
+            "dice": 0.9988941590763161,
+            "precision": 0.9977919043621919,
+            "recall": 0.9999988517919891
+          }
+        },
+        "mean_iou": 0.9928846858477919,
+        "mean_dice": 0.9964222382235993,
+        "pixel_accuracy": 0.9981974836872274,
+        "supervised_pixels": 4660152,
+        "confusion_matrix": [
+          [
+            176092,
+            1014,
+            0
+          ],
+          [
+            1601,
+            1862896,
+            5782
+          ],
+          [
+            3,
+            0,
+            2612764
+          ]
+        ],
+        "split": "test",
+        "condition_tags": [
+          "overcast_or_low_saturation"
+        ]
+      }
+    },
+    "high_saturation": {
+      "images": 0,
+      "metrics": null
+    },
+    "small_beach_visible_fraction": {
+      "images": 4,
+      "metrics": {
+        "class_names": [
+          "Beach",
+          "Ocean",
+          "Sky"
+        ],
+        "ignore_index": 255,
+        "per_class": {
+          "Beach": {
+            "class_id": 0,
+            "support_pixels": 218222,
+            "predicted_pixels": 217456,
+            "iou": 0.9798595805594056,
+            "dice": 0.9898273495563237,
+            "precision": 0.9915707085571334,
+            "recall": 0.9880901100713951
+          },
+          "Ocean": {
+            "class_id": 1,
+            "support_pixels": 3222667,
+            "predicted_pixels": 3217654,
+            "iou": 0.9968340595783417,
+            "dice": 0.9984145200215951,
+            "precision": 0.9991922686528757,
+            "recall": 0.9976379812124554
+          },
+          "Sky": {
+            "class_id": 2,
+            "support_pixels": 2932872,
+            "predicted_pixels": 2938651,
+            "iou": 0.998031411659896,
+            "dice": 0.9990147360403766,
+            "precision": 0.9980324305267961,
+            "recall": 0.9999989771118548
+          }
+        },
+        "mean_iou": 0.9915750172658812,
+        "mean_dice": 0.9957522018727651,
+        "pixel_accuracy": 0.9983974924695168,
+        "supervised_pixels": 6373761,
+        "confusion_matrix": [
+          [
+            215623,
+            2599,
+            0
+          ],
+          [
+            1830,
+            3215055,
+            5782
+          ],
+          [
+            3,
+            0,
+            2932869
+          ]
+        ],
+        "split": "test",
+        "condition_tags": [
+          "small_beach_visible_fraction"
+        ]
+      }
+    },
+    "ocean_dominant": {
+      "images": 8,
+      "metrics": {
+        "class_names": [
+          "Beach",
+          "Ocean",
+          "Sky"
+        ],
+        "ignore_index": 255,
+        "per_class": {
+          "Beach": {
+            "class_id": 0,
+            "support_pixels": 1037283,
+            "predicted_pixels": 1083317,
+            "iou": 0.9176476758717854,
+            "dice": 0.9570555503159484,
+            "precision": 0.9367211997965508,
+            "recall": 0.9782923271662604
+          },
+          "Ocean": {
+            "class_id": 1,
+            "support_pixels": 6083987,
+            "predicted_pixels": 6038037,
+            "iou": 0.9851004764755742,
+            "dice": 0.9924943227302635,
+            "precision": 0.9962708078801107,
+            "recall": 0.9887463599116829
+          },
+          "Sky": {
+            "class_id": 2,
+            "support_pixels": 461879,
+            "predicted_pixels": 461795,
+            "iou": 0.9998181341866593,
+            "dice": 0.9999090588237841,
+            "precision": 1.0,
+            "recall": 0.9998181341866593
+          }
+        },
+        "mean_iou": 0.9675220955113396,
+        "mean_dice": 0.9831529772899987,
+        "pixel_accuracy": 0.9879907410496616,
+        "supervised_pixels": 7583149,
+        "confusion_matrix": [
+          [
+            1014766,
+            22517,
+            0
+          ],
+          [
+            68467,
+            6015520,
+            0
+          ],
+          [
+            84,
+            0,
+            461795
+          ]
+        ],
+        "split": "test",
+        "condition_tags": [
+          "ocean_dominant"
+        ]
+      }
+    }
+  },
+  "shoreline": {
+    "pred_valid_images": 20,
+    "gt_valid_images": 14,
+    "mean_mae_px": 47.42534971570044,
+    "median_mae_px": 14.032894736842104,
+    "p95_mae_px": 157.39494177633222,
+    "mean_chamfer_px": 122.21776295288063,
+    "median_chamfer_px": 117.27418857592784,
+    "p95_chamfer_px": 187.83931386884962,
+    "mean_interface_median_px": 145.29355860793285,
+    "p95_interface_median_px": 248.60370692971955,
+    "max_interface_median_px": 296.13679271579883,
+    "images_with_comparison": 14,
+    "images_with_chamfer": 14
+  },
+  "per_image": [
+    {
+      "image": "sam3_4d2c22cf-be96-4148-8368-7faffbc4261b.jpg",
+      "mean_iou": 0.9910496681895756,
+      "pixel_accuracy": 0.9934100116966995,
+      "iou_Beach": 0.9869400895856663,
+      "iou_Ocean": 0.9862089149830605,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9934271242083312,
+      "dice_Ocean": 0.9930565788357378,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 68.67567567567568,
+      "shoreline_chamfer_px": 98.90701318590109,
+      "shoreline_interface_median_px": 130.4837154590564,
+      "shoreline_shared_columns": 74
+    },
+    {
+      "image": "sam3_5ae846f5-a4c2-4f8a-b4c9-00dbb465a90d.jpg",
+      "mean_iou": 0.9244822465781607,
+      "pixel_accuracy": 0.9541054968376459,
+      "iou_Beach": 0.8695928777707947,
+      "iou_Ocean": 0.9038538619636872,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9302483852074276,
+      "dice_Ocean": 0.9494992026661411,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 150.98525469168902,
+      "shoreline_chamfer_px": 197.2656970722646,
+      "shoreline_interface_median_px": 92.03531830518254,
+      "shoreline_shared_columns": 373
+    },
+    {
+      "image": "sam3_7312152a-56a9-4bde-867d-a30277e20ccd.jpg",
+      "mean_iou": 0.8837530449085996,
+      "pixel_accuracy": 0.9732820357842046,
+      "iou_Beach": 0.6820792324497196,
+      "iou_Ocean": 0.9705032803210744,
+      "iou_Sky": 0.9986766219550052,
+      "dice_Beach": 0.8109953672709744,
+      "dice_Ocean": 0.9850308700454843,
+      "dice_Sky": 0.9993378728552393,
+      "tags": [
+        "normal_light",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": false,
+      "shoreline_mae_px": null,
+      "shoreline_chamfer_px": null,
+      "shoreline_interface_median_px": null,
+      "shoreline_shared_columns": 0
+    },
+    {
+      "image": "sam3_74ad86e2-cf5a-42fc-abf2-13bc577b5cdf.jpg",
+      "mean_iou": 0.9871183618866208,
+      "pixel_accuracy": 0.9905243026738354,
+      "iou_Beach": 0.9796653533551393,
+      "iou_Ocean": 0.981689732304723,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9897282403763861,
+      "dice_Ocean": 0.9907602752354265,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 36.58227848101266,
+      "shoreline_chamfer_px": 67.1221732608371,
+      "shoreline_interface_median_px": 100.42410069301094,
+      "shoreline_shared_columns": 79
+    },
+    {
+      "image": "sam3_7f239b33-bb45-4b6a-9aea-074c32f28616.jpg",
+      "mean_iou": 0.9998197396061282,
+      "pixel_accuracy": 0.9998735402767528,
+      "iou_Beach": 0.9997620126926564,
+      "iou_Ocean": 0.9996972061257283,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9998809921851535,
+      "dice_Ocean": 0.9998485801383609,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": false,
+      "shoreline_mae_px": null,
+      "shoreline_chamfer_px": null,
+      "shoreline_interface_median_px": null,
+      "shoreline_shared_columns": 0
+    },
+    {
+      "image": "sam3_899c1f63-41ef-4e6a-aaae-9a5620172f37.jpg",
+      "mean_iou": 0.984928508793379,
+      "pixel_accuracy": 0.998941415457085,
+      "iou_Beach": 0.9561252872173177,
+      "iou_Ocean": 0.9986602391628193,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9775706019090954,
+      "dice_Ocean": 0.999329670540831,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light",
+        "small_beach_visible_fraction",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 4.75,
+      "shoreline_chamfer_px": 168.9223742568719,
+      "shoreline_interface_median_px": 221.0,
+      "shoreline_shared_columns": 92
+    },
+    {
+      "image": "sam3_90814531-60dc-4498-accd-9f73ef02ad26.jpg",
+      "mean_iou": 0.9822698064391965,
+      "pixel_accuracy": 0.9959767460554263,
+      "iou_Beach": 0.9512931318862572,
+      "iou_Ocean": 0.9955162874313322,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9750386718849057,
+      "dice_Ocean": 0.9977531065033605,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 93.22727272727273,
+      "shoreline_chamfer_px": 168.87440311484178,
+      "shoreline_interface_median_px": 144.89996549343965,
+      "shoreline_shared_columns": 55
+    },
+    {
+      "image": "sam3_aefc133e-2ac1-496a-a22b-faced4dd9a8c.jpg",
+      "mean_iou": 0.9872811674961843,
+      "pixel_accuracy": 0.9974315209457272,
+      "iou_Beach": 0.9646398821329405,
+      "iou_Ocean": 0.9972036203556123,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9820017306028267,
+      "dice_Ocean": 0.9985998525058302,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 23.31578947368421,
+      "shoreline_chamfer_px": 112.14121513433562,
+      "shoreline_interface_median_px": 143.49186153572225,
+      "shoreline_shared_columns": 38
+    },
+    {
+      "image": "sam3_ba0783e4-cc50-4df4-b596-15e62c9a9f3b.jpg",
+      "mean_iou": 0.9964520769287843,
+      "pixel_accuracy": 0.9978383702170363,
+      "iou_Beach": 0.9924380521223534,
+      "iou_Ocean": 0.9969181786639998,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9962046760401952,
+      "dice_Ocean": 0.9984567112619196,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": false,
+      "shoreline_mae_px": null,
+      "shoreline_chamfer_px": null,
+      "shoreline_interface_median_px": null,
+      "shoreline_shared_columns": 0
+    },
+    {
+      "image": "sam3_c032c6c4-0ee8-43f5-9f00-103cf2f91291.jpg",
+      "mean_iou": 0.9351459254294237,
+      "pixel_accuracy": 0.9512774131866575,
+      "iou_Beach": 0.8849424938940048,
+      "iou_Ocean": 0.9204952823942661,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9389596730517206,
+      "dice_Ocean": 0.958601971931628,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 108.12844036697248,
+      "shoreline_chamfer_px": 57.28936743866178,
+      "shoreline_interface_median_px": 40.031233418243346,
+      "shoreline_shared_columns": 218
+    },
+    {
+      "image": "sam3_d8cdec16-8fc1-4844-8291-b6fd0936aa17.jpg",
+      "mean_iou": 0.9593983386075174,
+      "pixel_accuracy": 0.9986938126850321,
+      "iou_Beach": 0.8797112090063632,
+      "iou_Ocean": 0.9986532504761721,
+      "iou_Sky": 0.9998305563400169,
+      "dice_Beach": 0.9360067703925525,
+      "dice_Ocean": 0.9993261714989796,
+      "dice_Sky": 0.9999152709916118,
+      "tags": [
+        "normal_light",
+        "overcast_or_low_saturation",
+        "small_beach_visible_fraction",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 1.708994708994709,
+      "shoreline_chamfer_px": 109.51372734962568,
+      "shoreline_interface_median_px": 115.04996941484305,
+      "shoreline_shared_columns": 189
+    },
+    {
+      "image": "sam3_e9855b95-c632-4651-a700-16b28bc0514e.jpg",
+      "mean_iou": 0.9623696883012199,
+      "pixel_accuracy": 0.9720986580900911,
+      "iou_Beach": 0.9447703386293593,
+      "iou_Ocean": 0.9423387262743005,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9716009339130678,
+      "dice_Ocean": 0.970313481914505,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 169.29864636209814,
+      "shoreline_chamfer_px": 135.99415124552078,
+      "shoreline_interface_median_px": 85.98255637046388,
+      "shoreline_shared_columns": 591
+    },
+    {
+      "image": "sam3_videoframe_11486365.png",
+      "mean_iou": 0.9906571992209009,
+      "pixel_accuracy": 0.9977576260100375,
+      "iou_Beach": 0.9974787204001775,
+      "iou_Ocean": 0.9769480978645171,
+      "iou_Sky": 0.9975447793980085,
+      "dice_Beach": 0.9987377689814301,
+      "dice_Ocean": 0.9883396523356464,
+      "dice_Sky": 0.9987708808196373,
+      "tags": [
+        "bright_sunlight",
+        "strong_glare"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 2.3125,
+      "shoreline_chamfer_px": 136.2768926317127,
+      "shoreline_interface_median_px": 190.51771571168914,
+      "shoreline_shared_columns": 48
+    },
+    {
+      "image": "sam3_videoframe_12327538.png",
+      "mean_iou": 0.9935673948093077,
+      "pixel_accuracy": 0.9984474337466495,
+      "iou_Beach": 0.9972141506756784,
+      "iou_Ocean": 0.9846556703049287,
+      "iou_Sky": 0.9988323634473159,
+      "dice_Beach": 0.998605132392348,
+      "dice_Ocean": 0.9922685179476429,
+      "dice_Sky": 0.999415840680771,
+      "tags": [
+        "bright_sunlight",
+        "strong_glare"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 2.450980392156863,
+      "shoreline_chamfer_px": 122.40716201752004,
+      "shoreline_interface_median_px": 223.00896842952304,
+      "shoreline_shared_columns": 51
+    },
+    {
+      "image": "sam3_videoframe_13023681.png",
+      "mean_iou": 0.9936351687172112,
+      "pixel_accuracy": 0.9984483190951093,
+      "iou_Beach": 0.9981127362548916,
+      "iou_Ocean": 0.9844244523637451,
+      "iou_Sky": 0.9983683175329973,
+      "dice_Beach": 0.9990554768452926,
+      "dice_Ocean": 0.9921511007296336,
+      "dice_Sky": 0.9991834926261156,
+      "tags": [
+        "bright_sunlight",
+        "strong_glare"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 0.5338983050847458,
+      "shoreline_chamfer_px": 71.84383057213371,
+      "shoreline_interface_median_px": 112.0044641967453,
+      "shoreline_shared_columns": 118
+    },
+    {
+      "image": "sam3_videoframe_157401.png",
+      "mean_iou": 0.9939752490767594,
+      "pixel_accuracy": 0.9980749991628156,
+      "iou_Beach": 0.9909311547879602,
+      "iou_Ocean": 0.9932142303804753,
+      "iou_Sky": 0.9977803620618422,
+      "dice_Beach": 0.9954449227487198,
+      "dice_Ocean": 0.9965955643321744,
+      "dice_Sky": 0.9988889479642962,
+      "tags": [
+        "normal_light",
+        "overcast_or_low_saturation",
+        "small_beach_visible_fraction"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": false,
+      "shoreline_mae_px": null,
+      "shoreline_chamfer_px": null,
+      "shoreline_interface_median_px": null,
+      "shoreline_shared_columns": 0
+    },
+    {
+      "image": "sam3_videoframe_177138.png",
+      "mean_iou": 0.9937865531743594,
+      "pixel_accuracy": 0.9981276409879324,
+      "iou_Beach": 0.9898011349113031,
+      "iou_Ocean": 0.9937850298694324,
+      "iou_Sky": 0.9977734947423426,
+      "dice_Beach": 0.9948744299569657,
+      "dice_Ocean": 0.9968828283704314,
+      "dice_Sky": 0.998885506658529,
+      "tags": [
+        "normal_light",
+        "overcast_or_low_saturation",
+        "small_beach_visible_fraction"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": false,
+      "shoreline_mae_px": null,
+      "shoreline_chamfer_px": null,
+      "shoreline_interface_median_px": null,
+      "shoreline_shared_columns": 0
+    },
+    {
+      "image": "sam3_videoframe_2117435.png",
+      "mean_iou": 0.9800335008086085,
+      "pixel_accuracy": 0.9951823361823362,
+      "iou_Beach": 0.9908891223378856,
+      "iou_Ocean": 0.95331115313997,
+      "iou_Sky": 0.9959002269479701,
+      "dice_Beach": 0.9954237141788109,
+      "dice_Ocean": 0.9760975885562435,
+      "dice_Sky": 0.9979459028078277,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": false,
+      "shoreline_mae_px": null,
+      "shoreline_chamfer_px": null,
+      "shoreline_interface_median_px": null,
+      "shoreline_shared_columns": 0
+    },
+    {
+      "image": "sam3_videoframe_2320477.png",
+      "mean_iou": 0.9759629820933187,
+      "pixel_accuracy": 0.9938984958719267,
+      "iou_Beach": 0.9954411218366486,
+      "iou_Ocean": 0.9399202295150795,
+      "iou_Sky": 0.9925275949282281,
+      "dice_Beach": 0.9977153532051323,
+      "dice_Ocean": 0.9690297726830043,
+      "dice_Sky": 0.996249785904701,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 1.042857142857143,
+      "shoreline_chamfer_px": 81.72710499309112,
+      "shoreline_interface_median_px": 139.04315876734103,
+      "shoreline_shared_columns": 35
+    },
+    {
+      "image": "sam3_videoframe_38868003.png",
+      "mean_iou": 0.9936641692706477,
+      "pixel_accuracy": 0.9983467364877502,
+      "iou_Beach": 0.9993305391796874,
+      "iou_Ocean": 0.9841142432701178,
+      "iou_Sky": 0.9975477253621382,
+      "dice_Beach": 0.999665157507879,
+      "dice_Ocean": 0.9919935271954401,
+      "dice_Sky": 0.9987723574226908,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 0.9423076923076923,
+      "shoreline_chamfer_px": 182.7635690670108,
+      "shoreline_interface_median_px": 296.13679271579883,
+      "shoreline_shared_columns": 26
+    }
+  ],
+  "shoreline_details": [
+    {
+      "image": "sam3_4d2c22cf-be96-4148-8368-7faffbc4261b.jpg",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 8
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 372
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 74,
+        "gt_columns": 86,
+        "pred_columns": 884,
+        "mae_px": 68.67567567567568,
+        "rmse_px": 109.70611848220878,
+        "bias_px": -28.87837837837838,
+        "p95_abs_px": 248.175,
+        "chamfer_px": 98.90701318590109,
+        "chamfer_p95_px": 526.49452911862,
+        "interface_median_px": 130.4837154590564,
+        "interface_p95_px": 526.49452911862,
+        "gt_segments": 8,
+        "pred_segments": 372
+      },
+      "gt_valid_columns": 86,
+      "pred_valid_columns": 884,
+      "gt_ocean_pixels": 336077,
+      "pred_ocean_pixels": 372366
+    },
+    {
+      "image": "sam3_5ae846f5-a4c2-4f8a-b4c9-00dbb465a90d.jpg",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 22
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 232
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 373,
+        "gt_columns": 508,
+        "pred_columns": 1531,
+        "mae_px": 150.98525469168902,
+        "rmse_px": 170.13861837868254,
+        "bias_px": 134.7573726541555,
+        "p95_abs_px": 299.7,
+        "chamfer_px": 197.2656970722646,
+        "chamfer_p95_px": 968.1696993314322,
+        "interface_median_px": 92.03531830518254,
+        "interface_p95_px": 968.1696993314322,
+        "gt_segments": 22,
+        "pred_segments": 232
+      },
+      "gt_valid_columns": 508,
+      "pred_valid_columns": 1531,
+      "gt_ocean_pixels": 703119,
+      "pred_ocean_pixels": 784080
+    },
+    {
+      "image": "sam3_7312152a-56a9-4bde-867d-a30277e20ccd.jpg",
+      "gt": {
+        "available": false,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 0,
+        "reason": "too few columns contain an Ocean/Beach interface"
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 373
+      },
+      "comparison": {
+        "gt_valid": false,
+        "pred_valid": true,
+        "shared_columns": 0,
+        "gt_columns": 0,
+        "pred_columns": 1920,
+        "mae_px": null,
+        "rmse_px": null,
+        "bias_px": null,
+        "p95_abs_px": null,
+        "chamfer_px": null,
+        "chamfer_p95_px": null,
+        "interface_median_px": null,
+        "interface_p95_px": null,
+        "gt_segments": 0,
+        "pred_segments": 373
+      },
+      "gt_valid_columns": 0,
+      "pred_valid_columns": 1920,
+      "gt_ocean_pixels": 1432390,
+      "pred_ocean_pixels": 1507350
+    },
+    {
+      "image": "sam3_74ad86e2-cf5a-42fc-abf2-13bc577b5cdf.jpg",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 5
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 212
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 79,
+        "gt_columns": 79,
+        "pred_columns": 949,
+        "mae_px": 36.58227848101266,
+        "rmse_px": 49.2873902275525,
+        "bias_px": -14.113924050632912,
+        "p95_abs_px": 91.64999999999999,
+        "chamfer_px": 67.1221732608371,
+        "chamfer_p95_px": 260.3113520382851,
+        "interface_median_px": 100.42410069301094,
+        "interface_p95_px": 260.3113520382851,
+        "gt_segments": 5,
+        "pred_segments": 212
+      },
+      "gt_valid_columns": 79,
+      "pred_valid_columns": 949,
+      "gt_ocean_pixels": 353538,
+      "pred_ocean_pixels": 413752
+    },
+    {
+      "image": "sam3_7f239b33-bb45-4b6a-9aea-074c32f28616.jpg",
+      "gt": {
+        "available": false,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 0,
+        "reason": "too few columns contain an Ocean/Beach interface"
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 140
+      },
+      "comparison": {
+        "gt_valid": false,
+        "pred_valid": true,
+        "shared_columns": 0,
+        "gt_columns": 0,
+        "pred_columns": 1390,
+        "mae_px": null,
+        "rmse_px": null,
+        "bias_px": null,
+        "p95_abs_px": null,
+        "chamfer_px": null,
+        "chamfer_p95_px": null,
+        "interface_median_px": null,
+        "interface_p95_px": null,
+        "gt_segments": 0,
+        "pred_segments": 140
+      },
+      "gt_valid_columns": 0,
+      "pred_valid_columns": 1390,
+      "gt_ocean_pixels": 624187,
+      "pred_ocean_pixels": 739253
+    },
+    {
+      "image": "sam3_899c1f63-41ef-4e6a-aaae-9a5620172f37.jpg",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 3
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 92,
+        "gt_columns": 92,
+        "pred_columns": 1920,
+        "mae_px": 4.75,
+        "rmse_px": 5.144118634104304,
+        "bias_px": -4.75,
+        "p95_abs_px": 7.0,
+        "chamfer_px": 168.9223742568719,
+        "chamfer_p95_px": 942.2161323928747,
+        "interface_median_px": 221.0,
+        "interface_p95_px": 942.2161323928747,
+        "gt_segments": 3,
+        "pred_segments": 1
+      },
+      "gt_valid_columns": 92,
+      "pred_valid_columns": 1920,
+      "gt_ocean_pixels": 1352388,
+      "pred_ocean_pixels": 1375876
+    },
+    {
+      "image": "sam3_90814531-60dc-4498-accd-9f73ef02ad26.jpg",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 15
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 20
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 55,
+        "gt_columns": 55,
+        "pred_columns": 1225,
+        "mae_px": 93.22727272727273,
+        "rmse_px": 116.07291987053969,
+        "bias_px": -46.445454545454545,
+        "p95_abs_px": 220.25,
+        "chamfer_px": 168.87440311484178,
+        "chamfer_p95_px": 985.604811433061,
+        "interface_median_px": 144.89996549343965,
+        "interface_p95_px": 985.604811433061,
+        "gt_segments": 15,
+        "pred_segments": 20
+      },
+      "gt_valid_columns": 55,
+      "pred_valid_columns": 1225,
+      "gt_ocean_pixels": 657949,
+      "pred_ocean_pixels": 669261
+    },
+    {
+      "image": "sam3_aefc133e-2ac1-496a-a22b-faced4dd9a8c.jpg",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 3
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 37
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 38,
+        "gt_columns": 38,
+        "pred_columns": 967,
+        "mae_px": 23.31578947368421,
+        "rmse_px": 47.49279723783054,
+        "bias_px": -13.236842105263158,
+        "p95_abs_px": 123.65,
+        "chamfer_px": 112.14121513433562,
+        "chamfer_p95_px": 807.1578677952614,
+        "interface_median_px": 143.49186153572225,
+        "interface_p95_px": 807.1578677952614,
+        "gt_segments": 3,
+        "pred_segments": 37
+      },
+      "gt_valid_columns": 38,
+      "pred_valid_columns": 967,
+      "gt_ocean_pixels": 667929,
+      "pred_ocean_pixels": 698886
+    },
+    {
+      "image": "sam3_ba0783e4-cc50-4df4-b596-15e62c9a9f3b.jpg",
+      "gt": {
+        "available": false,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 0,
+        "reason": "too few columns contain an Ocean/Beach interface"
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 292
+      },
+      "comparison": {
+        "gt_valid": false,
+        "pred_valid": true,
+        "shared_columns": 0,
+        "gt_columns": 0,
+        "pred_columns": 793,
+        "mae_px": null,
+        "rmse_px": null,
+        "bias_px": null,
+        "p95_abs_px": null,
+        "chamfer_px": null,
+        "chamfer_p95_px": null,
+        "interface_median_px": null,
+        "interface_p95_px": null,
+        "gt_segments": 0,
+        "pred_segments": 292
+      },
+      "gt_valid_columns": 0,
+      "pred_valid_columns": 793,
+      "gt_ocean_pixels": 489682,
+      "pred_ocean_pixels": 507429
+    },
+    {
+      "image": "sam3_c032c6c4-0ee8-43f5-9f00-103cf2f91291.jpg",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 41
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 211
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 218,
+        "gt_columns": 218,
+        "pred_columns": 1000,
+        "mae_px": 108.12844036697248,
+        "rmse_px": 143.74016121096471,
+        "bias_px": -43.31192660550459,
+        "p95_abs_px": 277.37499999999994,
+        "chamfer_px": 57.28936743866178,
+        "chamfer_p95_px": 228.24270437168468,
+        "interface_median_px": 40.031233418243346,
+        "interface_p95_px": 228.24270437168468,
+        "gt_segments": 41,
+        "pred_segments": 211
+      },
+      "gt_valid_columns": 218,
+      "pred_valid_columns": 1000,
+      "gt_ocean_pixels": 402647,
+      "pred_ocean_pixels": 413455
+    },
+    {
+      "image": "sam3_d8cdec16-8fc1-4844-8291-b6fd0936aa17.jpg",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 2
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 189,
+        "gt_columns": 189,
+        "pred_columns": 1280,
+        "mae_px": 1.708994708994709,
+        "rmse_px": 1.9780541986251066,
+        "bias_px": -0.8095238095238095,
+        "p95_abs_px": 3.5,
+        "chamfer_px": 109.51372734962568,
+        "chamfer_p95_px": 636.1644619327271,
+        "interface_median_px": 115.04996941484305,
+        "interface_p95_px": 636.1644619327271,
+        "gt_segments": 2,
+        "pred_segments": 1
+      },
+      "gt_valid_columns": 189,
+      "pred_valid_columns": 1280,
+      "gt_ocean_pixels": 727462,
+      "pred_ocean_pixels": 738877
+    },
+    {
+      "image": "sam3_e9855b95-c632-4651-a700-16b28bc0514e.jpg",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 26
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 703
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 591,
+        "gt_columns": 694,
+        "pred_columns": 1445,
+        "mae_px": 169.29864636209814,
+        "rmse_px": 207.65419626972724,
+        "bias_px": -158.72504230118443,
+        "p95_abs_px": 356.5,
+        "chamfer_px": 135.99415124552078,
+        "chamfer_p95_px": 581.9538548528324,
+        "interface_median_px": 85.98255637046388,
+        "interface_p95_px": 581.9538548528324,
+        "gt_segments": 26,
+        "pred_segments": 703
+      },
+      "gt_valid_columns": 694,
+      "pred_valid_columns": 1445,
+      "gt_ocean_pixels": 695968,
+      "pred_ocean_pixels": 796993
+    },
+    {
+      "image": "sam3_videoframe_11486365.png",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 3
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 48,
+        "gt_columns": 48,
+        "pred_columns": 1210,
+        "mae_px": 2.3125,
+        "rmse_px": 3.375771516754849,
+        "bias_px": -2.3125,
+        "p95_abs_px": 7.0,
+        "chamfer_px": 136.2768926317127,
+        "chamfer_p95_px": 705.9254989065835,
+        "interface_median_px": 190.51771571168914,
+        "interface_p95_px": 705.9254989065835,
+        "gt_segments": 3,
+        "pred_segments": 1
+      },
+      "gt_valid_columns": 48,
+      "pred_valid_columns": 1210,
+      "gt_ocean_pixels": 77594,
+      "pred_ocean_pixels": 84375
+    },
+    {
+      "image": "sam3_videoframe_12327538.png",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 3
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 51,
+        "gt_columns": 51,
+        "pred_columns": 1215,
+        "mae_px": 2.450980392156863,
+        "rmse_px": 2.5762870379600145,
+        "bias_px": -2.450980392156863,
+        "p95_abs_px": 4.0,
+        "chamfer_px": 122.40716201752004,
+        "chamfer_p95_px": 509.10392848748154,
+        "interface_median_px": 223.00896842952304,
+        "interface_p95_px": 509.10392848748154,
+        "gt_segments": 3,
+        "pred_segments": 1
+      },
+      "gt_valid_columns": 51,
+      "pred_valid_columns": 1215,
+      "gt_ocean_pixels": 81724,
+      "pred_ocean_pixels": 87774
+    },
+    {
+      "image": "sam3_videoframe_13023681.png",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 2
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 118,
+        "gt_columns": 118,
+        "pred_columns": 1214,
+        "mae_px": 0.5338983050847458,
+        "rmse_px": 0.9850578577174274,
+        "bias_px": -0.5338983050847458,
+        "p95_abs_px": 2.0,
+        "chamfer_px": 71.84383057213371,
+        "chamfer_p95_px": 333.85003107289714,
+        "interface_median_px": 112.0044641967453,
+        "interface_p95_px": 333.85003107289714,
+        "gt_segments": 2,
+        "pred_segments": 1
+      },
+      "gt_valid_columns": 118,
+      "pred_valid_columns": 1214,
+      "gt_ocean_pixels": 80254,
+      "pred_ocean_pixels": 86677
+    },
+    {
+      "image": "sam3_videoframe_157401.png",
+      "gt": {
+        "available": false,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 0,
+        "reason": "too few columns contain an Ocean/Beach interface"
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "comparison": {
+        "gt_valid": false,
+        "pred_valid": true,
+        "shared_columns": 0,
+        "gt_columns": 0,
+        "pred_columns": 1920,
+        "mae_px": null,
+        "rmse_px": null,
+        "bias_px": null,
+        "p95_abs_px": null,
+        "chamfer_px": null,
+        "chamfer_p95_px": null,
+        "interface_median_px": null,
+        "interface_p95_px": null,
+        "gt_segments": 0,
+        "pred_segments": 1
+      },
+      "gt_valid_columns": 0,
+      "pred_valid_columns": 1920,
+      "gt_ocean_pixels": 542164,
+      "pred_ocean_pixels": 548888
+    },
+    {
+      "image": "sam3_videoframe_177138.png",
+      "gt": {
+        "available": false,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 0,
+        "reason": "too few columns contain an Ocean/Beach interface"
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1920,
+          1080
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "comparison": {
+        "gt_valid": false,
+        "pred_valid": true,
+        "shared_columns": 0,
+        "gt_columns": 0,
+        "pred_columns": 1920,
+        "mae_px": null,
+        "rmse_px": null,
+        "bias_px": null,
+        "p95_abs_px": null,
+        "chamfer_px": null,
+        "chamfer_p95_px": null,
+        "interface_median_px": null,
+        "interface_p95_px": null,
+        "gt_segments": 0,
+        "pred_segments": 1
+      },
+      "gt_valid_columns": 0,
+      "pred_valid_columns": 1920,
+      "gt_ocean_pixels": 600653,
+      "pred_ocean_pixels": 623312
+    },
+    {
+      "image": "sam3_videoframe_2117435.png",
+      "gt": {
+        "available": false,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 0,
+        "reason": "too few columns contain an Ocean/Beach interface"
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "comparison": {
+        "gt_valid": false,
+        "pred_valid": true,
+        "shared_columns": 0,
+        "gt_columns": 0,
+        "pred_columns": 1203,
+        "mae_px": null,
+        "rmse_px": null,
+        "bias_px": null,
+        "p95_abs_px": null,
+        "chamfer_px": null,
+        "chamfer_p95_px": null,
+        "interface_median_px": null,
+        "interface_p95_px": null,
+        "gt_segments": 0,
+        "pred_segments": 1
+      },
+      "gt_valid_columns": 0,
+      "pred_valid_columns": 1203,
+      "gt_ocean_pixels": 72380,
+      "pred_ocean_pixels": 74112
+    },
+    {
+      "image": "sam3_videoframe_2320477.png",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 2
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 35,
+        "gt_columns": 35,
+        "pred_columns": 1203,
+        "mae_px": 1.042857142857143,
+        "rmse_px": 1.1433034842695342,
+        "bias_px": -0.3,
+        "p95_abs_px": 2.0,
+        "chamfer_px": 81.72710499309112,
+        "chamfer_p95_px": 367.76474563050806,
+        "interface_median_px": 139.04315876734103,
+        "interface_p95_px": 367.76474563050806,
+        "gt_segments": 2,
+        "pred_segments": 1
+      },
+      "gt_valid_columns": 35,
+      "pred_valid_columns": 1203,
+      "gt_ocean_pixels": 71407,
+      "pred_ocean_pixels": 71394
+    },
+    {
+      "image": "sam3_videoframe_38868003.png",
+      "gt": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "pred": {
+        "available": true,
+        "image_size": [
+          1280,
+          720
+        ],
+        "smoothing": 0,
+        "segments": 1
+      },
+      "comparison": {
+        "gt_valid": true,
+        "pred_valid": true,
+        "shared_columns": 26,
+        "gt_columns": 26,
+        "pred_columns": 1211,
+        "mae_px": 0.9423076923076923,
+        "rmse_px": 1.3265049508446565,
+        "bias_px": -0.9423076923076923,
+        "p95_abs_px": 2.0,
+        "chamfer_px": 182.7635690670108,
+        "chamfer_p95_px": 822.5318781836019,
+        "interface_median_px": 296.13679271579883,
+        "interface_p95_px": 822.5318781836019,
+        "gt_segments": 1,
+        "pred_segments": 1
+      },
+      "gt_valid_columns": 26,
+      "pred_valid_columns": 1211,
+      "gt_ocean_pixels": 83471,
+      "pred_ocean_pixels": 88195
+    }
+  ],
+  "worst_images": [
+    {
+      "image": "sam3_7312152a-56a9-4bde-867d-a30277e20ccd.jpg",
+      "mean_iou": 0.8837530449085996,
+      "pixel_accuracy": 0.9732820357842046,
+      "iou_Beach": 0.6820792324497196,
+      "iou_Ocean": 0.9705032803210744,
+      "iou_Sky": 0.9986766219550052,
+      "dice_Beach": 0.8109953672709744,
+      "dice_Ocean": 0.9850308700454843,
+      "dice_Sky": 0.9993378728552393,
+      "tags": [
+        "normal_light",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": false,
+      "shoreline_mae_px": null,
+      "shoreline_chamfer_px": null,
+      "shoreline_interface_median_px": null,
+      "shoreline_shared_columns": 0
+    },
+    {
+      "image": "sam3_5ae846f5-a4c2-4f8a-b4c9-00dbb465a90d.jpg",
+      "mean_iou": 0.9244822465781607,
+      "pixel_accuracy": 0.9541054968376459,
+      "iou_Beach": 0.8695928777707947,
+      "iou_Ocean": 0.9038538619636872,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9302483852074276,
+      "dice_Ocean": 0.9494992026661411,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 150.98525469168902,
+      "shoreline_chamfer_px": 197.2656970722646,
+      "shoreline_interface_median_px": 92.03531830518254,
+      "shoreline_shared_columns": 373
+    },
+    {
+      "image": "sam3_c032c6c4-0ee8-43f5-9f00-103cf2f91291.jpg",
+      "mean_iou": 0.9351459254294237,
+      "pixel_accuracy": 0.9512774131866575,
+      "iou_Beach": 0.8849424938940048,
+      "iou_Ocean": 0.9204952823942661,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9389596730517206,
+      "dice_Ocean": 0.958601971931628,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 108.12844036697248,
+      "shoreline_chamfer_px": 57.28936743866178,
+      "shoreline_interface_median_px": 40.031233418243346,
+      "shoreline_shared_columns": 218
+    },
+    {
+      "image": "sam3_d8cdec16-8fc1-4844-8291-b6fd0936aa17.jpg",
+      "mean_iou": 0.9593983386075174,
+      "pixel_accuracy": 0.9986938126850321,
+      "iou_Beach": 0.8797112090063632,
+      "iou_Ocean": 0.9986532504761721,
+      "iou_Sky": 0.9998305563400169,
+      "dice_Beach": 0.9360067703925525,
+      "dice_Ocean": 0.9993261714989796,
+      "dice_Sky": 0.9999152709916118,
+      "tags": [
+        "normal_light",
+        "overcast_or_low_saturation",
+        "small_beach_visible_fraction",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 1.708994708994709,
+      "shoreline_chamfer_px": 109.51372734962568,
+      "shoreline_interface_median_px": 115.04996941484305,
+      "shoreline_shared_columns": 189
+    },
+    {
+      "image": "sam3_e9855b95-c632-4651-a700-16b28bc0514e.jpg",
+      "mean_iou": 0.9623696883012199,
+      "pixel_accuracy": 0.9720986580900911,
+      "iou_Beach": 0.9447703386293593,
+      "iou_Ocean": 0.9423387262743005,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9716009339130678,
+      "dice_Ocean": 0.970313481914505,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 169.29864636209814,
+      "shoreline_chamfer_px": 135.99415124552078,
+      "shoreline_interface_median_px": 85.98255637046388,
+      "shoreline_shared_columns": 591
+    },
+    {
+      "image": "sam3_videoframe_2320477.png",
+      "mean_iou": 0.9759629820933187,
+      "pixel_accuracy": 0.9938984958719267,
+      "iou_Beach": 0.9954411218366486,
+      "iou_Ocean": 0.9399202295150795,
+      "iou_Sky": 0.9925275949282281,
+      "dice_Beach": 0.9977153532051323,
+      "dice_Ocean": 0.9690297726830043,
+      "dice_Sky": 0.996249785904701,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 1.042857142857143,
+      "shoreline_chamfer_px": 81.72710499309112,
+      "shoreline_interface_median_px": 139.04315876734103,
+      "shoreline_shared_columns": 35
+    },
+    {
+      "image": "sam3_videoframe_2117435.png",
+      "mean_iou": 0.9800335008086085,
+      "pixel_accuracy": 0.9951823361823362,
+      "iou_Beach": 0.9908891223378856,
+      "iou_Ocean": 0.95331115313997,
+      "iou_Sky": 0.9959002269479701,
+      "dice_Beach": 0.9954237141788109,
+      "dice_Ocean": 0.9760975885562435,
+      "dice_Sky": 0.9979459028078277,
+      "tags": [
+        "normal_light"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": false,
+      "shoreline_mae_px": null,
+      "shoreline_chamfer_px": null,
+      "shoreline_interface_median_px": null,
+      "shoreline_shared_columns": 0
+    },
+    {
+      "image": "sam3_90814531-60dc-4498-accd-9f73ef02ad26.jpg",
+      "mean_iou": 0.9822698064391965,
+      "pixel_accuracy": 0.9959767460554263,
+      "iou_Beach": 0.9512931318862572,
+      "iou_Ocean": 0.9955162874313322,
+      "iou_Sky": 1.0,
+      "dice_Beach": 0.9750386718849057,
+      "dice_Ocean": 0.9977531065033605,
+      "dice_Sky": 1.0,
+      "tags": [
+        "normal_light",
+        "ocean_dominant"
+      ],
+      "predicted_shoreline": true,
+      "gt_shoreline": true,
+      "shoreline_mae_px": 93.22727272727273,
+      "shoreline_chamfer_px": 168.87440311484178,
+      "shoreline_interface_median_px": 144.89996549343965,
+      "shoreline_shared_columns": 55
+    }
+  ],
+  "prediction_grid": "C:\\Users\\bitui\\Documents\\coastwatch\\ml\\outputs\\segformer_b2\\evaluation\\prediction_grid.png",
+  "limitations": [
+    "Dataset B (SCLabels, 1,717 images) has no masks and is absent from training; only the 131-pair SAM3 dataset was trainable.",
+    "The test split is small (20 images), so all metrics have wide uncertainty.",
+    "Nighttime is supported only if the test split actually contains night images. Check the condition coverage table; do not infer nighttime capability from a daytime-only evaluation.",
+    "Condition tags are luminance/glare/saturation heuristics, not meteorological or tide ground truth. Waves, sea foam, wet sand, vegetation, rocks and tide are not separately annotated or labelled.",
+    "Shoreline error is in image pixels. No camera calibration or world-coordinate conversion was applied, so no metre/tide claim is made.",
+    "Source annotations are SAM3-generated polygons with documented Beach/Ocean overlap and visible coarse boundaries; some annotation noise is inherited.",
+    "The annotation polygons leave the wet-sand swash zone unlabelled in many frames. Those pixels are ignore 255, not Sky. In 6/20 test images the remaining Beach and Ocean polygons do not touch, so no ground-truth shoreline can be extracted and that image is excluded from shoreline error.",
+    "Some frames contain a far shore in addition to the near waterline. The single-valued per-column shoreline can switch branches, so shoreline MAE is an image-space diagnostic reported over shared columns, not a physical accuracy claim."
+  ]
+}

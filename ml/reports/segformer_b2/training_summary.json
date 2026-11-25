@@ -1,0 +1,7 @@
+{
+  "best_epoch": 18,
+  "best_val_mean_iou": 0.9873880243994946,
+  "epochs_completed": 40,
+  "checkpoint": "C:\\Users\\bitui\\Documents\\coastwatch\\ml\\checkpoints\\segformer_b2\\best.pt",
+  "history": "C:\\Users\\bitui\\Documents\\coastwatch\\ml\\outputs\\segformer_b2\\history.json"
+}

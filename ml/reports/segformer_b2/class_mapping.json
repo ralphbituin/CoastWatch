@@ -1,0 +1,131 @@
+{
+  "target_schema": {
+    "class_names": [
+      "Beach",
+      "Ocean",
+      "Sky"
+    ],
+    "class_ids": {
+      "Beach": 0,
+      "Ocean": 1,
+      "Sky": 2
+    },
+    "ignore_index": 255
+  },
+  "verified_source_mapping": {
+    "0": {
+      "name": "sky",
+      "target": 2,
+      "evidence": "Sky polygons contain 99.995% mask value 0."
+    },
+    "1": {
+      "name": "ocean",
+      "target": 1,
+      "evidence": "Ocean polygons contain 99.999% mask value 1."
+    },
+    "2": {
+      "name": "beach",
+      "target": 0,
+      "evidence": "Beach polygons contain 82.4% value 2; the remaining overlap is assigned to ocean by the delivered raster."
+    },
+    "255": {
+      "name": "ignore",
+      "target": 255,
+      "evidence": "Reserved ignore index; absent from the current rasters."
+    }
+  },
+  "documentation_conflict": {
+    "path": "C:\\Users\\bitui\\Documents\\coastwatch\\ml\\datasets\\image_sam3\\labels\\classes.json",
+    "documented_classes": {
+      "0": {
+        "name": "unknown",
+        "rgb": [
+          255,
+          0,
+          255
+        ],
+        "gray": 105,
+        "use": "ignore / people / boats / watermark / occlusion"
+      },
+      "1": {
+        "name": "water",
+        "rgb": [
+          255,
+          255,
+          255
+        ],
+        "gray": 255,
+        "use": "open water and breaking waves"
+      },
+      "2": {
+        "name": "land",
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "gray": 0,
+        "use": "dry or wet sand, rocks, vegetation"
+      },
+      "3": {
+        "name": "foam",
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "gray": 226,
+        "use": "whitewater/foam at the waterline (training class; counts as water for binary extraction)"
+      }
+    },
+    "documented_names": [
+      "foam",
+      "land",
+      "unknown",
+      "water"
+    ],
+    "actual_polygon_labels": [
+      "beach",
+      "ocean",
+      "sky"
+    ],
+    "actual_mask_modes": [
+      "L"
+    ],
+    "actual_raw_values": [
+      0,
+      1,
+      2
+    ],
+    "verdict": "CONFLICT: classes.json describes a different class schema/encoding than the delivered PNG rasters. The verified polygon labels and actual pixel values are authoritative; classes.json is stale and is not used for conversion."
+  },
+  "polygon_verification": {
+    "beach": {
+      "mask_value_distribution": {
+        "0": 308,
+        "1": 6833240,
+        "2": 29865483
+      },
+      "dominant_mask_value": 2,
+      "dominant_purity": 0.8137948655919552
+    },
+    "ocean": {
+      "mask_value_distribution": {
+        "0": 53,
+        "1": 63413156
+      },
+      "dominant_mask_value": 1,
+      "dominant_purity": 0.9999991642119862
+    },
+    "sky": {
+      "mask_value_distribution": {
+        "0": 39224561
+      },
+      "dominant_mask_value": 0,
+      "dominant_purity": 1.0
+    }
+  },
+  "polygon_inter_class_overlap_pixels": {
+    "beach+ocean": 6822058
+  }
+}
