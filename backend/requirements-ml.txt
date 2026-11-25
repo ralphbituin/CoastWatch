@@ -3,10 +3,18 @@
 # GPU development and edge (Jetson Orin Nano, Phase 9) environments.
 #
 # Install with:  pip install -r requirements-ml.txt
+#
+# Active inference (SegFormer MiT-B2 ONNX) needs ONLY onnxruntime. PyTorch,
+# torchvision, segmentation-models-pytorch and albumentations are retained for
+# the legacy training pipeline and for offline export/verification; they are
+# not imported by the API at runtime.
 -r requirements.txt
 
+# Active inference runtime (FP32 CUDA when usable, CPU fallback).
+onnxruntime==1.20.1
+
+# Legacy training / offline export only.
 torch==2.5.1
 torchvision==0.20.1
-onnxruntime==1.20.1
 segmentation-models-pytorch==0.4.0
 albumentations==1.4.21

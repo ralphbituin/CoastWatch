@@ -30,3 +30,9 @@ scikit-learn==1.6.0
 
 # --- Computer vision foundations (Phase 3/4 onward) ---
 opencv-python-headless==4.10.0.84
+
+# --- YouTube Live resolution (Phase 7) ---
+# Public/authorized streams only; FFMPEG (opencv backend) reads the resolved
+# stream. Pinned to the version available in the development environment. The
+# provider also supports a `yt-dlp` CLI on PATH if the module is absent.
+yt-dlp==2026.10.26

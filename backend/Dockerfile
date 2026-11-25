@@ -13,11 +13,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq5 \
         libgl1 \
         libglib2.0-0 \
+        ffmpeg \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY requirements.txt requirements-ml.txt ./
+RUN pip install --upgrade pip && pip install -r requirements-ml.txt
 
 COPY . .
 
