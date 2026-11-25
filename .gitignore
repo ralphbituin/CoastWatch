@@ -31,6 +31,9 @@ ml/models/*
 !ml/models/.gitkeep
 ml/datasets/*
 !ml/datasets/.gitkeep
+# Generated SegFormer artifacts: weights are large and reports are reproducible.
+ml/checkpoints/
+ml/outputs/
 *.pt
 *.pth
 *.onnx
@@ -42,6 +45,15 @@ ml/datasets/*
 wandb/
 runs/
 lightning_logs/
+# Reproducible report artifacts: extracted frames, plots, and per-frame smoke runs.
+# Hand-written reports and the scripts that generate them stay tracked.
+ml/reports/phase5_tide_anomaly/*
+!ml/reports/phase5_tide_anomaly/*.md
+ml/reports/webcam_smoke/*
+!ml/reports/webcam_smoke/README.md
+ml/reports/shoreline_fragmentation/*
+!ml/reports/shoreline_fragmentation/*.py
+ml/reports/training/
 
 # Data and video
 data/tide_datasets/*
@@ -52,6 +64,8 @@ data/sample_images/*
 !data/sample_images/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+# Lab runs are bounded, process-local artifacts (job storage, not source data).
+data/lab_runs/
 uploads/
 *.csv
 *.parquet
@@ -91,12 +105,22 @@ AGENTS.md
 
 # Docker and logs
 *.log
+*.out
 logs/
 docker-data/
 postgres-data/
 redis-data/
 
+# Local RTSP bridge (third-party binary, generated certs, temp chunks)
+dropcam-rstp/mediamtx.exe
+dropcam-rstp/*.crt
+dropcam-rstp/*.tmp
+
 # Temporary files
 tmp/
 temp/
 .cache/
+data/videos/*
+!data/videos/.gitkeep
+data/uploads/*
+!data/uploads/.gitkeep
