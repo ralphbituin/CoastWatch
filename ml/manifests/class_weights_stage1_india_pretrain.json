@@ -1,0 +1,15 @@
+{
+  "counts": [
+    0,
+    13092,
+    0,
+    0
+  ],
+  "weights": [
+    0.0,
+    1.0,
+    0.0,
+    0.0
+  ],
+  "note": "weight 0 = no supervision for this class"
+}
