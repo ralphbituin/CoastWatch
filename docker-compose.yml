@@ -48,6 +48,8 @@ services:
       DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Manila}
       MODEL_PATH: /app/models
       DATA_DIR: /data
+      PREVIEW_CACHE_MAX_AGE_SECONDS: ${PREVIEW_CACHE_MAX_AGE_SECONDS:-60}
+      ONNX_INTRA_OP_THREADS: ${ONNX_INTRA_OP_THREADS:-8}
     ports:
       - "8000:8000"
     volumes:

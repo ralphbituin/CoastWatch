@@ -112,9 +112,11 @@ postgres-data/
 redis-data/
 
 # Local RTSP bridge (third-party binary, generated certs, temp chunks)
-dropcam-rstp/mediamtx.exe
-dropcam-rstp/*.crt
-dropcam-rstp/*.tmp
+dropcam-rstp/
+
+# Reports
+reports/
+ml/reports/
 
 # Temporary files
 tmp/
