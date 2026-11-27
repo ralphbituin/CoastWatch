@@ -1,10 +1,10 @@
 # CoastWatch
 
-CoastWatch is a **tide-aware shoreline monitoring and decision-support system**
-for coastal communities in the Philippines, designed to extend to Southeast
-Asia. It turns fixed coastal cameras into a continuous shoreline record, relates
-waterline movement to tide predictions and recent shoreline behaviour, and
-surfaces unusual seaward recession as a **monitoring signal** for human review.
+CoastWatch is a **shoreline monitoring and decision-support system** for coastal
+communities in the Philippines, designed to extend to Southeast Asia. It turns
+fixed coastal cameras into a continuous shoreline record, tracks waterline
+movement and recent shoreline behaviour, and surfaces unusual seaward recession
+as a **monitoring signal** for human review.
 
 CoastWatch is **not** a tsunami warning service and does not confirm a tsunami.
 Official PHIVOLCS advisories remain the authoritative source for tsunami
@@ -16,11 +16,11 @@ detections with validated accuracy.
 | Capability | State |
 |---|---|
 | Foundation: FastAPI, Next.js dashboard, TimescaleDB/PostGIS, Docker, CI | Implemented |
-| Tide engine: NAMRIA CSV import, interpolation, phase, high/low water, charts | Implemented |
+| Tide reference data: station registry and imported datasets | Retained; prediction generation, charts and CSV import were removed |
 | Camera ingestion: RTSP, USB, operator stills, video files, YouTube Live | Implemented; hardware and Live paths are environment-gated |
 | Shoreline vision: SegFormer MiT-B2 ONNX, Ocean/Beach waterline, ordered segments | Implemented |
 | Per-camera homography calibration and camera-movement check | Implemented |
-| Tide-aware baseline (Theil–Sen) | Implemented; refuses to fit without verified, geographically appropriate tide data |
+| Tide-aware baseline (Theil–Sen) | Retained but unreachable — no tide prediction feed |
 | Rolling-baseline drawdown detector | Implemented; **tide-independent and unverified** |
 | Archive recordings, bounded video processing, anomaly events | Implemented prototype |
 | Live capture sessions and stream recording | Implemented; autostart is opt-in |
@@ -37,34 +37,36 @@ tide source for that footage, so its anomalies are reported as
 ## Project Development
 
 CoastWatch is built one phase at a time, each verified before the next. The
-original plan: import tide data, observe the waterline, learn the normal
-tide–shoreline relationship, and flag drawdowns the tide cannot explain is now
-implemented end to end, but the final inference step remains a prototype:
+original plan (import tide data, observe the waterline, learn the normal
+tide–shoreline relationship, and flag drawdowns the tide cannot explain) was
+implemented through Phase 7. Tide prediction generation was subsequently removed
+from the product while the tide tables, station registry and existing data were
+kept; the delivered detector is tide-independent:
 
 - **Foundation and data.** A versioned FastAPI backend, a Next.js dashboard, and
   a PostgreSQL/TimescaleDB + PostGIS schema with Alembic migrations and Docker
-  Compose. Tide predictions, shoreline observations, anomaly events and stream
+  Compose. Tide reference data, shoreline observations, anomaly events and stream
   sessions are stored as time-series.
-- **Tide and cameras.** NAMRIA-format tide datasets can be previewed, validated
-  and imported; predictions, interpolation, phase classification and high/low
-  water events are exposed through the API. Cameras can be registered as RTSP,
-  USB, uploaded stills, video files, or public YouTube Live streams, with frame
-  quality checks, calibration profiles and live capture sessions.
+- **Cameras and tide data.** Cameras can be registered as RTSP, USB, uploaded
+  stills, video files, or public YouTube Live streams, with frame quality checks,
+  calibration profiles and live capture sessions. Tide stations and imported
+  tide datasets are still stored, but tide prediction generation, charts and CSV
+  import were removed from the product.
 - **Vision.** A SegFormer MiT-B2 segmenter (Beach / Ocean / Sky) runs through
   ONNX Runtime, and a class-aware extractor traces the Ocean/Beach boundary into
   ordered shoreline segments. Operator-labelled masks remain a fallback and are
   reported honestly as such.
-- **Baseline and anomaly detection.** A tide-conditioned Theil–Sen baseline is
-  implemented but will not fit without paired tide data. The delivered detector
-  is a causal 20-minute rolling-median baseline with robust-z, cumulative
-  drawdown and multi-frame persistence; it is explicitly self-referential, and
-  that mode never emits `NORMAL`.
+- **Baseline and anomaly detection.** The tide-conditioned Theil–Sen baseline
+  code is retained but unreachable, because tide prediction generation was
+  removed. The delivered detector is a causal 20-minute rolling-median baseline
+  with robust-z, cumulative drawdown and multi-frame persistence; it is
+  explicitly self-referential, and that mode never emits `NORMAL`.
 - **Delivery surfaces.** A test lab for batch images, videos and live streams, a
   recordings archive, session-level APIs, and dashboard pages for stations,
-  tides, cameras, shoreline, anomalies, recordings and lab runs.
+  cameras, shoreline, anomalies, recordings and lab runs.
 
-Near-term work is **validation**, not more features: verified tide stations and
-datums, labelled day/night footage across sites, calibration in metres,
+Near-term work is **validation**, not more features: labelled day/night footage
+across sites, calibration in metres,
 cross-camera generalisation, and review of thresholds against non-tsunami
 events. Edge deployment remains future work. The architecture, models and
 thresholds may change as that evidence arrives.
@@ -179,13 +181,13 @@ docs/       architecture, API, model, dataset and phase documentation
 | # | Phase | Status |
 |---|---|---|
 | 1 | Project foundation (backend, frontend, DB, Docker, CI, docs) | Complete |
-| 2 | Tide prediction engine | Complete |
+| 2 | Tide prediction engine | Removed from product — tide tables/data retained |
 | 3 | Camera integration | Complete |
 | 4 | Shoreline computer vision and calibration | Complete |
 | 4b | Trained segmentation model wired in | Complete |
 | 4c | SegFormer MiT-B2 three-class migration | Complete |
 | 4d | Multi-site fine-tune deployment (artifact v2.1.0) | Complete |
-| 5 | Tide-aware shoreline baseline | Prototype — needs verified tide data |
+| 5 | Tide-aware shoreline baseline | Retained but unreachable — no tide prediction feed |
 | 6 | Rolling-baseline anomaly detection | Prototype — tide-independent and unverified |
 | 7 | Timestamped recording, YouTube Live, Test Lab | Experimental |
 | 8 | Testing and validation | In progress |
@@ -214,8 +216,8 @@ issues and remaining tasks per phase.
 
 | Data | Source / Method |
 |---|---|
-| Tide Predictions and Observations | NAMRIA (Philippine stations); imported CSV datasets |
-| Tide Dataset Import | Manually provided CSV files with column mapping and validation |
+| Tide Station Registry | Retained station metadata and imported datasets (prediction generation removed) |
+| Tide Dataset Import | Removed from the product; existing imported data preserved |
 | Camera Footage | Existing CCTV via RTSP, USB cameras, uploaded stills and video files |
 | Live Public Streams | Public/authorized YouTube Live URLs (operator-supplied, legal review required) |
 | Shoreline Observations | Extracted from camera footage with the active segmentation model |
@@ -223,9 +225,9 @@ issues and remaining tasks per phase.
 
 ## Important Notes
 
-- Tide predictions, actual sea-level observations, and camera-derived shoreline
-  measurements are kept as separate data.
-- Tide data retains its station, timestamp, time zone, units, and vertical datum.
+- Tide stations, imported tide datasets and camera-derived shoreline
+  measurements are kept as separate data. Tide prediction generation and CSV
+  import were removed; existing tide tables and rows are preserved.
 - Missing or unreliable data is reflected in the system's data-quality status;
   nothing is silently fabricated or imputed to look normal.
 - The delivered anomaly detector is **tide-independent**. It cannot produce an
