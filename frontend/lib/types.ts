@@ -45,16 +45,8 @@ export type SystemState =
   | "OFFICIAL_TSUNAMI_ADVISORY";
 
 // ---------------------------------------------------------------------------
-// Tide module (mirrors backend Pydantic schemas)
+// Tide station registry (prediction/import types were removed with the feature)
 // ---------------------------------------------------------------------------
-
-export interface TideEvent {
-  timestamp: string;
-  height: number;
-  type: "high" | "low";
-  unit: string;
-  datum: string | null;
-}
 
 export interface TideStation {
   id: number;
@@ -73,84 +65,6 @@ export interface TideStation {
   prediction_end: string | null;
   monitoring_station_id: number | null;
   dataset_count: number;
-}
-
-export interface TidePoint {
-  timestamp: string;
-  height: number;
-  unit: string;
-  datum: string | null;
-  quality_status: string;
-}
-
-export interface TidePhaseResponse {
-  station_code: string;
-  station_name: string;
-  requested_timestamp: string;
-  local_timestamp: string;
-  server_time: string;
-  predicted_height_m: number;
-  unit: string;
-  vertical_datum: string | null;
-  direction: string;
-  quality: string;
-  quality_note: string;
-  source: string | null;
-  dataset_id: number | null;
-  timezone: string;
-  interpolation_method: string;
-  previous_event: TideEvent | null;
-  next_event: TideEvent | null;
-}
-
-export interface TideChartResponse {
-  station_code: string;
-  start: string;
-  end: string;
-  method: string;
-  count: number;
-  coverage_start: string | null;
-  coverage_end: string | null;
-  sufficient_for_7d: boolean;
-  points: TidePoint[];
-  events: TideEvent[];
-}
-
-export interface ImportPreviewResponse {
-  station_code: string | null;
-  timezone: string;
-  file_hash: string | null;
-  columns_detected: string[];
-  column_mapping: Record<string, unknown>;
-  total_records: number;
-  valid_records: number;
-  rejected_records: number;
-  rejection_summary: Record<string, unknown>;
-  rejection_samples: Array<Record<string, unknown>>;
-  coverage_start: string | null;
-  coverage_end: string | null;
-  message: string;
-}
-
-export interface ImportCommitResponse extends ImportPreviewResponse {
-  dataset_id: number | null;
-  import_id: number;
-  status: "committed" | "partial" | "rejected" | "duplicate";
-  imported_records: number;
-}
-
-export interface DatasetImportRead {
-  id: number;
-  tide_station_id: number;
-  station_code: string;
-  dataset_id: number | null;
-  source_filename: string | null;
-  file_hash: string | null;
-  total_records: number;
-  imported_records: number;
-  rejected_records: number;
-  status: string;
-  created_at: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,7 +98,7 @@ export interface Country {
 // Cameras module (mirrors backend Pydantic schemas)
 // ---------------------------------------------------------------------------
 
-export type CameraType = "rtsp" | "usb" | "upload" | "video";
+export type CameraType = "rtsp" | "usb" | "upload" | "video" | "youtube_live";
 
 export interface Camera {
   id: number;
@@ -197,6 +111,9 @@ export interface Camera {
   rtsp_url_redacted: string | null;
   device_index: number | null;
   video_path: string | null;
+  youtube_url_redacted: string | null;
+  stream_quality: string | null;
+  stream_format: string | null;
   resolution_width: number | null;
   resolution_height: number | null;
   fps: number | null;
@@ -219,6 +136,19 @@ export interface CameraStatus {
   last_frame_at: string | null;
   frames_captured: number;
   checked_at: string;
+  is_live?: boolean | null;
+  stream_state?: string | null;
+  stream_session_id?: string | null;
+  stream_recording_id?: string | null;
+  frames_persisted?: number | null;
+  frames_rejected?: number | null;
+  reconnect_count?: number | null;
+  last_error?: string | null;
+  last_rolling_classification?: string | null;
+  last_event_at?: string | null;
+  resolved_quality?: string | null;
+  resolved_format?: string | null;
+  experimental_notice?: string;
 }
 
 export interface CameraQuality {
@@ -240,6 +170,17 @@ export interface CameraTestConnectionResult {
   frame_height: number | null;
   captured_at: string | null;
   quality: CameraQuality | null;
+  is_live?: boolean | null;
+  resolved_format?: string | null;
+  resolved_quality?: string | null;
+  source_url_redacted?: string | null;
+}
+
+export interface CameraRoiPolygon {
+  coordinate_space: "normalized";
+  points: [number, number][];
+  frame_width: number | null;
+  frame_height: number | null;
 }
 
 export interface CameraCalibration {
@@ -249,6 +190,7 @@ export interface CameraCalibration {
   reference_points: Record<string, unknown> | null;
   homography_matrix: unknown[][] | null;
   meters_per_pixel: number | null;
+  roi_polygon: CameraRoiPolygon | null;
   is_active: boolean;
   valid_from: string | null;
   valid_to: string | null;
@@ -279,11 +221,172 @@ export interface ShorelineObservationSummary {
   frame_quality_score: number | null;
   frame_quality_flags: string[] | null;
   created_at: string;
+  recording_id?: string | null;
+  frame_index?: number | null;
+  extraction_status?: string | null;
+  extraction_reason?: string | null;
+  shoreline_position_px?: number | null;
+  signed_position_px?: number | null;
+  position_axis?: string | null;
+  shoreline_axis?: string | null;
+  measured_coverage?: number | null;
+  segment_count?: number | null;
+  inference_time_ms?: number | null;
+  capture_timestamp_source?: string | null;
+  capture_timestamp_confidence?: number | null;
+  elapsed_seconds?: number | null;
+  stream_session_id?: string | null;
+  ingest_latency_ms?: number | null;
 }
 
 export interface ShorelineObservationDetail extends ShorelineObservationSummary {
   shoreline_geometry: [number, number][] | null;
+  /** Ordered segments; absent for historical observations. */
+  shoreline_segments?: [number, number][][] | null;
+  shoreline_axis?: "horizontal" | "vertical" | null;
+  interpolated_ranges?: [number, number][] | null;
+  measured_coverage?: number | null;
   source_frame_path: string | null;
+  position_sign?: string | null;
+  segment_measurements?: Array<Record<string, unknown>> | null;
+  class_fractions?: Record<string, number> | null;
+  capture_timestamp_source?: string | null;
+  capture_timestamp_confidence?: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5/6 prototype: baselines, anomalies, archive videos
+// ---------------------------------------------------------------------------
+
+export interface ShorelineBaseline {
+  id: number;
+  monitoring_station_id: number;
+  camera_id: number | null;
+  tide_station_id: number | null;
+  recording_id: string | null;
+  name: string;
+  model_type: string;
+  status: string | null;
+  provisional: boolean | null;
+  reason: string | null;
+  sample_count: number;
+  is_active: boolean;
+  position_axis: string | null;
+  position_sign: string | null;
+  position_unit: string | null;
+  detector_mode?: string | null;
+  r_squared: number | null;
+  model_params: Record<string, unknown> | null;
+  prediction_interval: Record<string, unknown> | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ShorelineBaselineStatus {
+  available: boolean;
+  status: string;
+  reason: string | null;
+  detector_mode?: string | null;
+  parameters?: Record<string, unknown> | null;
+  experimental_notice: string;
+  baselines: ShorelineBaseline[];
+}
+
+export type AnomalyClassification =
+  | "NORMAL"
+  | "UNUSUAL_SHORELINE_POSITION"
+  | "RAPID_SHORELINE_RETREAT"
+  | "PERSISTENT_DRAWDOWN"
+  | "POSSIBLE_DRAWDOWN"
+  | "DATA_UNRELIABLE"
+  | "EXPLORATORY_MOVEMENT_ONLY"
+  | "EXPLORATORY_ROLLING_BASELINE"
+  | "PENDING_PERSISTENCE";
+
+export interface AnomalyEvent {
+  id: number;
+  detected_at: string;
+  monitoring_station_id: number;
+  camera_id: number | null;
+  recording_id: string | null;
+  frame_index: number | null;
+  state: string;
+  classification: AnomalyClassification | null;
+  anomaly_score: number | null;
+  baseline_status: string | null;
+  tide_adjusted: boolean | null;
+  tide_data_available: boolean | null;
+  tide_source: string | null;
+  tide_height_m: number | null;
+  observed_position_px: number | null;
+  expected_position_px: number | null;
+  residual_px: number | null;
+  robust_z: number | null;
+  movement_rate_px_s: number | null;
+  persistence_count: number | null;
+  quality_status: string | null;
+  reason: string | null;
+  explanation: string | null;
+  contributing_factors: Record<string, unknown> | null;
+  acknowledged: boolean;
+  created_at: string;
+  detector_mode?: string | null;
+  resolved_detector_mode?: string | null;
+  mode_reason?: string | null;
+  onset_frame_index?: number | null;
+  rolling_baseline_px?: number | null;
+  rolling_scale_px?: number | null;
+  scale_floored?: boolean | null;
+  cumulative_drawdown_px?: number | null;
+  baseline_frozen?: boolean | null;
+  event_max_classification?: string | null;
+  onset_time?: string | null;
+  detection_time?: string | null;
+  detection_latency_s?: number | null;
+  event_window_seconds?: number | null;
+  cooldown_state?: string | null;
+  config_hash?: string | null;
+}
+
+export interface AnomalyEventList {
+  total: number;
+  items: AnomalyEvent[];
+  experimental_notice: string;
+}
+
+export interface AnomalySummary {
+  total: number;
+  by_classification: Record<string, number>;
+  by_state: Record<string, number>;
+  by_baseline_status: Record<string, number>;
+  experimental_notice: string;
+}
+
+export interface VideoRecording {
+  id: number;
+  recording_id: string;
+  camera_id: number | null;
+  monitoring_station_id: number | null;
+  file_path: string;
+  file_size_bytes: number | null;
+  duration_seconds: number | null;
+  fps: number | null;
+  frame_count: number | null;
+  width: number | null;
+  height: number | null;
+  video_codec: string | null;
+  audio_codec: string | null;
+  timezone: string | null;
+  timestamp_source: string | null;
+  timestamp_confidence: number | null;
+  processing_status: string | null;
+  processed_frames: number | null;
+  sampled_frames: number | null;
+  metadata_json: Record<string, unknown> | null;
+  notes: string | null;
+  created_at: string;
 }
 
 export interface ShorelineObserveResult {
@@ -305,6 +408,18 @@ export interface ShorelineModuleStatus {
   segmentation_model_available: boolean;
   implemented_endpoints: string[];
   notes: string[];
+  architecture?: string | null;
+  encoder?: string | null;
+  model_version?: string | null;
+  class_names?: string[] | null;
+  class_ids?: Record<string, number> | null;
+  water_classes?: number[] | null;
+  ignore_index?: number | null;
+  checkpoint_id?: string | null;
+  checkpoint_sha256?: string | null;
+  providers?: string[];
+  precision?: Record<string, unknown>;
+  limitations?: string[];
 }
 
 export interface ShorelineCalibration {
@@ -318,4 +433,122 @@ export interface ShorelineCalibration {
   valid_to: string | null;
   notes: string | null;
   created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 7: live stream sessions and the Predictor + Anomaly Test Lab
+// ---------------------------------------------------------------------------
+
+export interface StreamSession {
+  id: number;
+  session_id: string;
+  recording_id: string;
+  camera_id: number;
+  camera_code: string | null;
+  started_at: string;
+  ended_at: string | null;
+  status: string;
+  source_url_redacted: string | null;
+  sample_interval_seconds: number | null;
+  last_frame_at: string | null;
+  frames_captured: number;
+  frames_persisted: number;
+  frames_rejected: number;
+  reconnect_count: number;
+  last_error: string | null;
+  last_rolling_classification: string | null;
+  last_event_at: string | null;
+  detector_config: Record<string, unknown> | null;
+  metadata_json: Record<string, unknown> | null;
+  created_at: string;
+  experimental_notice?: string;
+}
+
+export interface CameraStreamStatus {
+  camera_id: number;
+  state: string;
+  session_id: string | null;
+  recording_id: string | null;
+  started_at: string | null;
+  last_frame_at: string | null;
+  frames_captured: number;
+  frames_persisted: number;
+  frames_rejected: number;
+  consecutive_failures: number;
+  reconnect_count: number;
+  last_error: string | null;
+  last_rolling_classification: string | null;
+  last_event_at: string | null;
+  sample_interval_seconds: number;
+  is_live: boolean | null;
+  experimental_notice?: string;
+}
+
+export interface LabRun {
+  run_id: string;
+  kind: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  timezone: string;
+  source: Record<string, unknown>;
+  progress: Record<string, unknown>;
+  row_count: number;
+  event_count: number;
+  errors: string[];
+  warnings: string[];
+  artifacts: string[];
+  persist: boolean;
+  camera_id: number | null;
+  recording_id: string | null;
+  experimental_notice: string;
+}
+
+export interface LabRow {
+  frame_index?: number | null;
+  observed_at?: string | null;
+  observed_at_local?: string | null;
+  elapsed_seconds?: number | null;
+  timestamp_source?: string | null;
+  timestamp_confidence?: number | null;
+  capture_timestamp_source?: string | null;
+  capture_timestamp_confidence?: number | null;
+  shoreline_position_px?: number | null;
+  signed_position_px?: number | null;
+  position_axis?: string | null;
+  segment_count?: number | null;
+  segment_measurements?: Array<Record<string, unknown>> | null;
+  segmentation_confidence?: number | null;
+  class_fractions?: Record<string, number> | null;
+  inference_time_ms?: number | null;
+  horizon_y_px?: number | null;
+  extraction_status?: string | null;
+  extraction_reason?: string | null;
+  rolling_baseline_px?: number | null;
+  rolling_scale_px?: number | null;
+  residual_px?: number | null;
+  robust_z?: number | null;
+  cumulative_drawdown_px?: number | null;
+  movement_rate_px_s?: number | null;
+  classification?: string | null;
+  state?: string | null;
+  quality_status?: string | null;
+  in_event?: boolean | null;
+  event_max_classification?: string | null;
+  onset_time?: string | null;
+  detection_time?: string | null;
+  persistence_count?: number | null;
+  camera_motion_gate?: string | null;
+  segment_evidence?: Array<Record<string, unknown>> | null;
+  reason?: string | null;
+  [key: string]: unknown;
+}
+
+export interface LabRowsResponse {
+  run_id: string;
+  total: number;
+  limit: number;
+  offset: number;
+  items: LabRow[];
+  experimental_notice: string;
 }

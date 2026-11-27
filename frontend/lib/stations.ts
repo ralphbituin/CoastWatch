@@ -35,6 +35,31 @@ export const stationsApi = {
 
   listMonitoringStations: () => stationRequest<MonitoringStation[]>("/stations"),
 
+  updateMonitoringStation: (
+    stationId: number,
+    payload: {
+      code?: string;
+      name?: string;
+      country_iso?: string;
+      region?: string | null;
+      latitude?: number;
+      longitude?: number;
+      timezone?: string;
+      vertical_datum?: string | null;
+      description?: string | null;
+    },
+  ) =>
+    stationRequest<MonitoringStation>(`/stations/${stationId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  deleteMonitoringStation: (stationId: number) =>
+    stationRequest<{ message: string }>(`/stations/${stationId}`, {
+      method: "DELETE",
+    }),
+
   createMonitoringStation: (payload: {
     code: string;
     name: string;

@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:shoreline": "node --test tests/waterlineGeometry.test.mjs tests/anomalySeries.test.mjs",
+    "test:calibration-mask": "node --test tests/calibrationMaskGeometry.test.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

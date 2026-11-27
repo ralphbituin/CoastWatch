@@ -4,7 +4,9 @@ import { API_V1 } from "@/lib/config";
 import type {
   Camera,
   CameraCalibration,
+  CameraRoiPolygon,
   CameraStatus,
+  CameraStreamStatus,
   CameraTestConnectionResult,
   CameraType,
 } from "@/lib/types";
@@ -48,6 +50,9 @@ export const camerasApi = {
     rtsp_url?: string | null;
     device_index?: number | null;
     video_path?: string | null;
+    youtube_url?: string | null;
+    stream_quality?: string | null;
+    stream_format?: string | null;
     resolution_width?: number | null;
     resolution_height?: number | null;
     fps?: number | null;
@@ -64,6 +69,51 @@ export const camerasApi = {
     }),
 
   status: (cameraId: number) => cameraRequest<CameraStatus>(`/cameras/${cameraId}/status`),
+
+  update: (
+    cameraId: number,
+    payload: {
+      code?: string;
+      name?: string;
+      monitoring_station_id?: number;
+      camera_type?: CameraType;
+      rtsp_url?: string | null;
+      device_index?: number | null;
+      video_path?: string | null;
+      youtube_url?: string | null;
+      stream_quality?: string | null;
+      stream_format?: string | null;
+      resolution_width?: number | null;
+      resolution_height?: number | null;
+      fps?: number | null;
+      latitude?: number | null;
+      longitude?: number | null;
+      orientation_deg?: number | null;
+      monitoring_region?: Record<string, unknown> | null;
+      enabled?: boolean;
+    },
+  ) =>
+    cameraRequest<Camera>(`/cameras/${cameraId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
+  remove: (cameraId: number) =>
+    cameraRequest<{ message: string }>(`/cameras/${cameraId}`, { method: "DELETE" }),
+
+  streamStatus: (cameraId: number) =>
+    cameraRequest<CameraStreamStatus>(`/cameras/${cameraId}/stream/status`),
+
+  startStream: (cameraId: number) =>
+    cameraRequest<CameraStreamStatus>(`/cameras/${cameraId}/stream/start`, {
+      method: "POST",
+    }),
+
+  stopStream: (cameraId: number) =>
+    cameraRequest<CameraStreamStatus>(`/cameras/${cameraId}/stream/stop`, {
+      method: "POST",
+    }),
 
   testConnection: (cameraId: number) =>
     cameraRequest<CameraTestConnectionResult>(`/cameras/${cameraId}/test-connection`, {
@@ -97,6 +147,7 @@ export const camerasApi = {
       reference_points?: Record<string, unknown> | null;
       homography_matrix?: unknown[][] | null;
       meters_per_pixel?: number | null;
+      roi_polygon?: CameraRoiPolygon | null;
       notes?: string | null;
       set_active?: boolean;
     },
@@ -106,4 +157,18 @@ export const camerasApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }),
+
+  saveRoiPolygon: (
+    cameraId: number,
+    calibrationId: number,
+    payload: { roi_polygon: CameraRoiPolygon | null; notes?: string | null },
+  ) =>
+    cameraRequest<CameraCalibration>(
+      `/cameras/${cameraId}/calibrations/${calibrationId}/roi`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    ),
 };

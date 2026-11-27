@@ -2,6 +2,7 @@
 
 import { API_V1 } from "@/lib/config";
 import type {
+  ShorelineBaselineStatus,
   ShorelineCalibration,
   ShorelineModuleStatus,
   ShorelineObservationDetail,
@@ -57,6 +58,16 @@ export const shorelinesApi = {
     );
   },
 
+  observationDetail: (params: { camera_id: number; observed_at: string }) => {
+    const q = new URLSearchParams({
+      camera_id: String(params.camera_id),
+      observed_at: params.observed_at,
+    });
+    return shorelineRequest<ShorelineObservationDetail>(
+      `/shorelines/observations/detail?${q.toString()}`,
+    );
+  },
+
   uploadMask: (payload: {
     camera_id: number;
     file: File;
@@ -83,4 +94,14 @@ export const shorelinesApi = {
 
   listCalibrations: () =>
     shorelineRequest<ShorelineCalibration[]>("/shorelines/calibrations"),
+
+  baselines: (params: { camera_id?: number; station_id?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (params.camera_id) q.set("camera_id", String(params.camera_id));
+    if (params.station_id) q.set("station_id", String(params.station_id));
+    const qs = q.toString();
+    return shorelineRequest<ShorelineBaselineStatus>(
+      `/shorelines/baselines${qs ? `?${qs}` : ""}`,
+    );
+  },
 };
