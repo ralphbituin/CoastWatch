@@ -91,3 +91,147 @@ def test_shoreline_rejects_tiny_ocean_patch() -> None:
     result = extract_shoreline(mask, min_ocean_component_px=5_000)
     assert result.metadata["available"] is False
     assert result.per_column.size == 0
+
+
+def _component_mask(width: int = 240, height: int = 160) -> np.ndarray:
+    mask = np.full((height, width), 2, dtype=np.uint8)
+    mask[20:60] = 1  # Ocean band
+    mask[60:] = 0  # Beach below
+    return mask
+
+
+def _points_in_bbox(points: np.ndarray, bbox: list[int]) -> int:
+    if points.size == 0:
+        return 0
+    x, y, width, height = bbox
+    return int(
+        np.count_nonzero(
+            (points[:, 0] >= x)
+            & (points[:, 0] < x + width)
+            & (points[:, 1] >= y)
+            & (points[:, 1] < y + height)
+        )
+    )
+
+
+def test_false_ocean_blob_inside_land_is_not_scanned() -> None:
+    mask = _component_mask()
+    mask[90:120, 150:200] = 1  # false Ocean island surrounded by Beach
+    false_bbox = [150, 90, 50, 30]
+
+    before = extract_shoreline(mask, ocean_component_selection="all", single_line_mode=False)
+    after = extract_shoreline(mask)
+
+    assert _points_in_bbox(before.points, false_bbox) > 0
+    assert _points_in_bbox(after.points, false_bbox) == 0
+    assert after.metadata["available"] is True
+    assert len(after.segments) == 1
+
+
+def test_false_ocean_touching_a_disconnected_beach_is_not_bridged() -> None:
+    mask = np.full((160, 240), 2, dtype=np.uint8)
+    mask[20:60, 0:120] = 1  # real Ocean
+    mask[60:160, 0:120] = 0  # dominant Beach
+    mask[100:160, 150:240] = 0  # separate Beach patch
+    mask[80:100, 150:220] = 1  # false Ocean touching only the separate Beach
+    false_bbox = [150, 80, 70, 20]
+
+    before = extract_shoreline(mask, ocean_component_selection="all", single_line_mode=False)
+    after = extract_shoreline(mask)
+
+    assert _points_in_bbox(before.points, false_bbox) > 0
+    assert _points_in_bbox(after.points, false_bbox) == 0
+    assert len(after.segments) == 1
+    assert after.points[:, 0].max() < 120
+
+
+def test_wide_occluder_selects_one_anchor() -> None:
+    mask = _component_mask(width=640, height=360)
+    mask[20:60, 310:330] = 2  # Sky-coloured pier wider than the closing kernel
+
+    result = extract_shoreline(
+        mask, close_kernel=11, min_ocean_component_px=100, min_beach_component_px=100
+    )
+    legacy = extract_shoreline(
+        mask,
+        close_kernel=11,
+        min_ocean_component_px=100,
+        min_beach_component_px=100,
+        single_line_mode=False,
+    )
+
+    assert result.metadata["available"] is True
+    assert len(result.segments) == 1
+    assert len(legacy.segments) == 2
+
+
+def test_single_ocean_component_is_unchanged_by_selection() -> None:
+    mask = _component_mask(width=320, height=180)
+    before = extract_shoreline(mask, ocean_component_selection="all", single_line_mode=False)
+    after = extract_shoreline(mask, ocean_component_selection="coastline", single_line_mode=False)
+
+    assert np.array_equal(before.points, after.points)
+    assert before.metadata["ocean_components_rejected_geometry"] == 0
+    assert after.metadata["ocean_components_rejected_geometry"] == 0
+
+
+def _diagonal_component_mask(width: int = 320, height: int = 200) -> np.ndarray:
+    mask = np.full((height, width), 2, dtype=np.uint8)
+    for x in range(width):
+        boundary = int(100 - 0.15 * x)
+        mask[30:boundary, x] = 1
+        mask[boundary:, x] = 0
+    return mask
+
+
+def test_diagonal_landward_strip_touching_border_is_rejected() -> None:
+    mask = _diagonal_component_mask()
+    mask[120:132, 250:320] = 1
+    false_bbox = [250, 120, 70, 12]
+
+    before = extract_shoreline(mask, min_branch_depth_ratio=0.0, single_line_mode=False)
+    after = extract_shoreline(mask)
+
+    assert _points_in_bbox(before.points, false_bbox) > 0
+    assert _points_in_bbox(after.points, false_bbox) == 0
+    assert len(after.segments) == 1
+    assert len(before.segments) == 2
+
+
+def test_single_line_bridges_an_occlusion_gap_with_interpolation() -> None:
+    mask = _component_mask(width=240, height=160)
+    mask[40:80, 110:130] = 2
+
+    result = extract_shoreline(mask)
+
+    assert result.metadata["available"] is True
+    assert len(result.segments) == 1
+    assert result.metadata["interpolated_ranges"]
+    points = result.points
+    bridged = points[(points[:, 0] >= 110) & (points[:, 0] < 130)]
+    assert len(bridged) == 20
+    assert np.allclose(bridged[:, 1], np.median(bridged[:, 1]))
+
+
+def test_single_line_rejects_sparse_fragmented_evidence() -> None:
+    mask = np.full((360, 640), 2, dtype=np.uint8)
+    mask[100:150, 300:340] = 1
+    mask[150:200, 300:340] = 0
+
+    result = extract_shoreline(mask)
+
+    assert result.metadata["available"] is False
+    assert result.metadata["reason"] == "insufficient_coastline_evidence"
+    assert result.points.size == 0
+
+
+def test_diagonal_pier_split_selects_one_anchor() -> None:
+    mask = _diagonal_component_mask()
+    mask[30:95, 150:170] = 2
+
+    result = extract_shoreline(mask)
+    legacy = extract_shoreline(mask, single_line_mode=False)
+
+    assert result.metadata["available"] is True
+    assert len(result.segments) == 1
+    assert len(legacy.segments) == 2
