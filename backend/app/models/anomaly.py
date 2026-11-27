@@ -22,9 +22,11 @@ from sqlalchemy import (
     ForeignKey,
     Identity,
     Index,
+    Integer,
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -48,6 +50,25 @@ class AnomalyEvent(Base):
     __tablename__ = "anomaly_events"
     __table_args__ = (
         Index("ix_anomaly_events_station_ts", "monitoring_station_id", "detected_at"),
+        Index(
+            "uq_anomaly_events_recording_frame",
+            "recording_id",
+            "frame_index",
+            "detected_at",
+            unique=True,
+        ),
+        Index(
+            "uq_anomaly_events_recording_mode_onset",
+            "recording_id",
+            "detector_mode",
+            "onset_frame_index",
+            "detected_at",
+            unique=True,
+            postgresql_where=text(
+                "recording_id IS NOT NULL AND detector_mode IS NOT NULL "
+                "AND onset_frame_index IS NOT NULL"
+            ),
+        ),
         {"comment": "TimescaleDB hypertable on detected_at"},
     )
 
@@ -80,6 +101,28 @@ class AnomalyEvent(Base):
     explanation: Mapped[str | None] = mapped_column(Text)
     contributing_factors: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # --- Phase 5/6 prototype fields (all nullable, additive) -------------
+    # ``classification`` is the transparent engine verdict. ``state`` remains
+    # the coarse system state so existing consumers are unaffected.
+    recording_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    frame_index: Mapped[int | None] = mapped_column(Integer)
+    classification: Mapped[str | None] = mapped_column(String(48), index=True)
+    baseline_status: Mapped[str | None] = mapped_column(String(24))
+    tide_adjusted: Mapped[bool | None] = mapped_column(Boolean)
+    tide_data_available: Mapped[bool | None] = mapped_column(Boolean)
+    tide_source: Mapped[str | None] = mapped_column(String(64))
+    robust_z: Mapped[float | None] = mapped_column(Float)
+    observed_position_px: Mapped[float | None] = mapped_column(Float)
+    expected_position_px: Mapped[float | None] = mapped_column(Float)
+    residual_px: Mapped[float | None] = mapped_column(Float)
+    movement_rate_px_s: Mapped[float | None] = mapped_column(Float)
+    persistence_count: Mapped[int | None] = mapped_column(Integer)
+    quality_status: Mapped[str | None] = mapped_column(String(32))
+    reason: Mapped[str | None] = mapped_column(Text)
+    # --- Phase 6 rev 2 rolling-baseline identity (nullable, additive) -----
+    detector_mode: Mapped[str | None] = mapped_column(String(32), index=True)
+    onset_frame_index: Mapped[int | None] = mapped_column(Integer)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

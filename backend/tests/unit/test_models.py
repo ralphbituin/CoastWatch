@@ -23,6 +23,7 @@ EXPECTED_TABLES = {
     "anomaly_events",
     "environmental_observations",
     "system_health_logs",
+    "video_recordings",
 }
 
 

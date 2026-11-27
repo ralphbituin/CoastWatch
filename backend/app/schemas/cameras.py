@@ -7,7 +7,36 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.services.vision.roi import RoiPolygonError, normalize_roi_polygon
+
 CameraType = Literal["rtsp", "usb", "upload", "video", "youtube_live"]
+
+
+class RoiPolygon(BaseModel):
+    """One simple monitoring ring in normalized frame coordinates."""
+
+    coordinate_space: Literal["normalized"] = "normalized"
+    points: list[tuple[float, float]] = Field(min_length=3, max_length=200)
+    frame_width: int | None = Field(default=None, ge=1, le=16384)
+    frame_height: int | None = Field(default=None, ge=1, le=16384)
+
+    @model_validator(mode="after")
+    def _validate_geometry(self) -> RoiPolygon:
+        try:
+            normalized = normalize_roi_polygon(self.model_dump())
+        except RoiPolygonError as exc:
+            raise ValueError(str(exc)) from exc
+        if normalized is None:  # pragma: no cover - fields are required
+            raise ValueError("roi_polygon is required")
+        self.points = [(float(x), float(y)) for x, y in normalized["points"]]
+        return self
+
+
+class RoiPolygonSave(BaseModel):
+    """Append a new calibration version carrying this outline (or clear it)."""
+
+    roi_polygon: RoiPolygon | None = None
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class CameraCreate(BaseModel):
@@ -76,6 +105,44 @@ class CameraCreate(BaseModel):
         elif self.youtube_url:
             raise ValueError("youtube_url is only valid for camera_type='youtube_live'")
         return self
+
+
+class CameraUpdate(BaseModel):
+    """Partial camera update. Omitted fields are left unchanged.
+
+    Source secrets (``rtsp_url``, ``youtube_url``) are never returned by the API,
+    so clients omit them when they only edit display/metadata fields. The route
+    validates the merged transport contract before writing.
+    """
+
+    code: str | None = Field(default=None, min_length=1, max_length=64)
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    monitoring_station_id: int | None = None
+    camera_type: CameraType | None = None
+    rtsp_url: str | None = Field(default=None, max_length=500)
+    device_index: int | None = Field(default=None, ge=0)
+    video_path: str | None = Field(default=None, max_length=500)
+    youtube_url: str | None = Field(default=None, max_length=500)
+    stream_quality: str | None = Field(default=None, max_length=32)
+    stream_format: str | None = Field(default=None, max_length=32)
+    resolution_width: int | None = Field(default=None, ge=1, le=16384)
+    resolution_height: int | None = Field(default=None, ge=1, le=16384)
+    fps: float | None = Field(default=None, gt=0, le=1000)
+    latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
+    longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
+    orientation_deg: float | None = Field(default=None, ge=0.0, lt=360.0)
+    monitoring_region: dict[str, Any] | None = None
+    enabled: bool | None = None
+
+    @field_validator("code", "name")
+    @classmethod
+    def _strip_optional(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
 
 
 class CameraRead(BaseModel):
@@ -186,6 +253,7 @@ class CameraCalibrationCreate(BaseModel):
     reference_points: dict[str, Any] | None = None
     homography_matrix: list[Any] | None = None
     meters_per_pixel: float | None = Field(default=None, gt=0)
+    roi_polygon: RoiPolygon | None = None
     valid_from: datetime | None = None
     valid_to: datetime | None = None
     notes: str | None = Field(default=None, max_length=2000)
@@ -209,6 +277,7 @@ class CameraCalibrationRead(BaseModel):
     reference_points: dict[str, Any] | None
     homography_matrix: list[Any] | None
     meters_per_pixel: float | None
+    roi_polygon: RoiPolygon | None = None
     is_active: bool
     valid_from: datetime | None
     valid_to: datetime | None

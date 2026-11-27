@@ -15,6 +15,7 @@ from app.models.country import Country
 from app.models.environmental import EnvironmentalObservation
 from app.models.shoreline import ShorelineBaseline, ShorelineObservation
 from app.models.station import MonitoringStation
+from app.models.stream import StreamSession
 from app.models.system import SystemHealthLog
 from app.models.tide import (
     DatasetImport,
@@ -22,6 +23,7 @@ from app.models.tide import (
     TidePrediction,
     TideStation,
 )
+from app.models.video import VideoRecording
 
 __all__ = [
     "AnomalyEvent",
@@ -33,8 +35,10 @@ __all__ = [
     "MonitoringStation",
     "ShorelineBaseline",
     "ShorelineObservation",
+    "StreamSession",
     "SystemHealthLog",
     "TideDataset",
     "TidePrediction",
     "TideStation",
+    "VideoRecording",
 ]

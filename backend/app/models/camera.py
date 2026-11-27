@@ -43,7 +43,7 @@ class Camera(Base, TimestampMixin):
     code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
 
-    # "rtsp" | "usb" | "upload" | "video"
+    # "rtsp" | "usb" | "upload" | "video" | "youtube_live"
     camera_type: Mapped[str] = mapped_column(String(16), nullable=False)
 
     # RTSP transport (nullable — never log the full URL with credentials).
@@ -52,6 +52,11 @@ class Camera(Base, TimestampMixin):
     device_index: Mapped[int | None] = mapped_column(Integer)
     # Virtual video camera: path relative to DATA_DIR/videos/ (Phase 4 dev tooling).
     video_path: Mapped[str | None] = mapped_column(String(500))
+    # YouTube Live source (public/authorized streams only). Redacted in API
+    # responses; query strings and tokens are never returned or logged.
+    youtube_url: Mapped[str | None] = mapped_column(String(500))
+    stream_quality: Mapped[str | None] = mapped_column(String(32))
+    stream_format: Mapped[str | None] = mapped_column(String(32))
 
     resolution_width: Mapped[int | None] = mapped_column(Integer)
     resolution_height: Mapped[int | None] = mapped_column(Integer)
@@ -89,6 +94,7 @@ class Camera(Base, TimestampMixin):
         back_populates="camera"
     )
     anomaly_events: Mapped[list[AnomalyEvent]] = relationship(back_populates="camera")
+    stream_sessions: Mapped[list[Any]] = relationship("StreamSession", back_populates="camera")
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Camera {self.code} type={self.camera_type}>"
@@ -113,6 +119,10 @@ class CameraCalibration(Base, TimestampMixin):
     # Row-major 3x3 homography matrix.
     homography_matrix: Mapped[list[Any] | None] = mapped_column(JSONB)
     meters_per_pixel: Mapped[float | None] = mapped_column(Float)
+
+    # Operator monitoring outline, normalized to the source frame. Exactly one
+    # simple ring; outside pixels are ignored by shoreline extraction.
+    roi_polygon: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

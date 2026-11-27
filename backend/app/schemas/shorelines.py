@@ -28,6 +28,10 @@ class ShorelineObservationRead(BaseModel):
     # Optional so pre-existing clients keep working and historical rows remain
     # readable (NULL means the observation predates segment persistence).
     shoreline_segments: list[list[list[float]]] | None = None
+    # Single-line contract diagnostics.
+    shoreline_axis: str | None = None
+    interpolated_ranges: list[list[int]] | None = None
+    measured_coverage: float | None = None
     calibrated_position_m: float | None
     segmentation_confidence: float | None
     frame_quality_score: float | None
@@ -76,6 +80,8 @@ class ShorelineObservationSummary(BaseModel):
     shoreline_position_px: float | None = None
     signed_position_px: float | None = None
     position_axis: str | None = None
+    shoreline_axis: str | None = None
+    measured_coverage: float | None = None
     segment_count: int | None = None
     inference_time_ms: float | None = None
     horizon_y_px: float | None = None
