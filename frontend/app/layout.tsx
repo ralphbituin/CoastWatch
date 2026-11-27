@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "CoastWatch",
   description:
-    "Tide-aware shoreline monitoring and tsunami drawdown anomaly detection (research / decision-support).",
+    "Shoreline monitoring and drawdown anomaly detection (research / decision-support).",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

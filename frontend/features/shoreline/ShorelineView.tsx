@@ -6,11 +6,19 @@ import { AlertTriangle, CheckCircle2, Loader2, Play, RefreshCw, Upload, XCircle 
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
+import { LiveShorelineVisualizer } from "@/features/shoreline/LiveShorelineVisualizer";
+import {
+  decimateSegment,
+  observationSegments,
+  polylinePoints,
+  waterlineBounds,
+} from "@/features/shoreline/waterlineGeometry";
 import { camerasApi } from "@/lib/cameras";
 import { shorelinesApi } from "@/lib/shorelines";
 import { stationsApi } from "@/lib/stations";
 import type {
   Camera,
+  ShorelineBaselineStatus,
   ShorelineModuleStatus,
   ShorelineObservationDetail,
   ShorelineObservationSummary,
@@ -18,38 +26,59 @@ import type {
 } from "@/lib/types";
 
 function WaterlinePreview({ detail }: { detail: ShorelineObservationDetail }) {
-  const geometry = detail.shoreline_geometry;
-  const polyline = useMemo(() => {
-    if (!geometry || geometry.length < 2) return null;
-    // Decimate dense polylines for SVG rendering.
-    const stride = Math.ceil(geometry.length / 240);
-    return geometry
-      .filter((_, i) => i % stride === 0)
-      .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
-      .join(" ");
-  }, [geometry]);
-  if (!geometry || geometry.length < 2 || !polyline) return null;
-  const maxX = Math.max(...geometry.map((p) => p[0]), 1);
-  const maxY = Math.max(...geometry.map((p) => p[1]), 1);
+  const segments = useMemo(
+    () => observationSegments(detail).map((segment) => decimateSegment(segment)),
+    [detail],
+  );
+  const bounds = useMemo(() => waterlineBounds(segments), [segments]);
+
+  if (segments.length === 0) {
+    return (
+      <p role="status" className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">
+        No shoreline detected for this observation.
+      </p>
+    );
+  }
+
   return (
-    <svg
-      viewBox={`0 0 ${maxX} ${maxY}`}
-      className="mt-2 h-44 w-full rounded-md border border-slate-200 bg-slate-900"
-      role="img"
-      aria-label="Extracted waterline geometry"
-    >
-      <polyline
-        points={polyline}
-        fill="none"
-        stroke="#22d3ee"
-        strokeWidth={Math.max(2, maxX / 320)}
-      />
-    </svg>
+    <>
+      <svg
+        viewBox={`0 0 ${bounds.width} ${bounds.height}`}
+        preserveAspectRatio="xMidYMid meet"
+        className="mt-2 h-44 w-full rounded-md border border-slate-200 bg-slate-900"
+        role="img"
+        aria-label={`Extracted waterline: one continuous ${detail.shoreline_axis ?? "image"} line`}
+      >
+        {segments.map((segment, index) => (
+          <polyline
+            key={index}
+            points={polylinePoints(segment)}
+            fill="none"
+            stroke="#22d3ee"
+            strokeWidth={2.5}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+      </svg>
+      <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+        <span>Axis: {detail.shoreline_axis ?? "unknown"}</span>
+        <span>
+          Measured coverage:{" "}
+          {detail.measured_coverage == null
+            ? "unknown"
+            : `${Math.round(detail.measured_coverage * 100)}%`}
+        </span>
+        <span>Bridged spans: {detail.interpolated_ranges?.length ?? 0}</span>
+      </div>
+    </>
   );
 }
 
 export function ShorelineView() {
   const [status, setStatus] = useState<ShorelineModuleStatus | null>(null);
+  const [baselineStatus, setBaselineStatus] = useState<ShorelineBaselineStatus | null>(null);
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<number | "">("");
   const [observations, setObservations] = useState<ShorelineObservationSummary[]>([]);
@@ -65,12 +94,14 @@ export function ShorelineView() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [moduleStatus, cameraList] = await Promise.all([
+      const [moduleStatus, cameraList, baselines] = await Promise.all([
         shorelinesApi.status(),
         camerasApi.list(),
+        shorelinesApi.baselines().catch(() => null),
       ]);
       setStatus(moduleStatus);
       setCameras(cameraList);
+      setBaselineStatus(baselines);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load shorelines module");
@@ -165,14 +196,39 @@ export function ShorelineView() {
             ) : (
               <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" aria-hidden />
             )}
-            <span className={status.segmentation_model_available ? "text-emerald-800" : "text-amber-800"}>
-              {status.segmentation_model_available
-                ? "Segmentation model artifact detected."
-                : "No segmentation model is provisioned yet — waterlines require operator-labelled masks or a trained model (see docs/MODEL_DOCUMENTATION.md)."}
-            </span>
+            <div className={status.segmentation_model_available ? "text-emerald-800" : "text-amber-800"}>
+              <p>
+                {status.segmentation_model_available
+                  ? `${status.architecture ?? "Segmentation"} ${status.encoder ?? ""} artifact detected.`.trim()
+                  : "No segmentation model is provisioned yet — waterlines require operator-labelled masks or a trained model (see docs/MODEL_DOCUMENTATION.md)."}
+              </p>
+              {status.segmentation_model_available && (
+                <p className="mt-1 text-xs">
+                  Classes: {(status.class_names ?? []).map((name, index) => `${index}=${name}`).join(" · ")}
+                  {status.water_classes ? ` · binary water = Ocean only (${status.water_classes.join(", ")})` : ""}
+                  {status.checkpoint_sha256
+                    ? ` · checkpoint ${status.checkpoint_sha256.slice(0, 12)}…`
+                    : ""}
+                </p>
+              )}
+            </div>
           </div>
         </Card>
       )}
+
+      <Card className="border-amber-200 bg-amber-50 text-sm text-amber-800">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <div>
+            <p>Experimental baseline — insufficient recording history for validated anomaly detection.</p>
+            <p className="mt-1 text-xs">
+              {baselineStatus?.available
+                ? "A provisional tide-conditioned baseline exists for this camera/station."
+                : `Tide-conditioned baseline unavailable${baselineStatus?.reason ? `: ${baselineStatus.reason}` : "."}`}
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {error && (
         <Card className="border-red-200 bg-red-50 text-sm text-red-700">
@@ -190,6 +246,13 @@ export function ShorelineView() {
           </div>
         </Card>
       )}
+
+      <LiveShorelineVisualizer
+        cameras={cameras}
+        selectedCameraId={selectedCameraId}
+        onCameraChange={setSelectedCameraId}
+        modelAvailable={Boolean(status?.segmentation_model_available)}
+      />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card title="Observations" subtitle="Most recent calibrated positions first">
@@ -256,6 +319,19 @@ export function ShorelineView() {
                     : " · uncalibrated"}
                 </span>
               </div>
+              {latest.recording_id && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Recording {latest.recording_id}
+                  {latest.frame_index !== null && latest.frame_index !== undefined
+                    ? ` · frame ${latest.frame_index}`
+                    : ""}
+                  {latest.signed_position_px !== null && latest.signed_position_px !== undefined
+                    ? ` · signed position ${latest.signed_position_px.toFixed(1)} px (${latest.position_axis ?? "y"}, + = seaward)`
+                    : ""}
+                  {latest.extraction_status ? ` · ${latest.extraction_status}` : ""}
+                  {latest.extraction_reason ? ` (${latest.extraction_reason})` : ""}
+                </p>
+              )}
               <WaterlinePreview detail={latest} />
             </div>
           ) : (
@@ -333,10 +409,26 @@ export function ShorelineView() {
 
       <Card title="Notes & limits" className="text-xs text-slate-500">
         <ul className="list-inside list-disc space-y-1">
-          <li>No segmentation model ships with the repo. Masks come from operators today; a U-Net/DeepLabV3+ trained on coastal footage can be dropped in later without API changes.</li>
-          <li>Contour extraction uses per-column water extents with sea-side detection (the half of the frame carrying more water is assumed to be sea).</li>
+          <li>
+            Model weights are never committed. The active artifact is SegFormer MiT-B2 under
+            <code> MODEL_PATH/shoreline-segmentation/</code>; observation cycles and the live
+            preview use it. Without it, masks come from operators.
+          </li>
+          <li>
+            The model predicts Beach 0 / Ocean 1 / Sky 2. The binary water mask is Ocean only; the
+            shoreline is the shared Ocean/Beach boundary, never the Sky/Ocean horizon.
+          </li>
+          <li>
+            If a frame has no Ocean/Beach contact (for example an unlabelled swash zone), the result
+            is reported as no shoreline rather than a fabricated line.
+          </li>
           <li>Calibrated positions require an active calibration profile with a homography and a seaward axis; otherwise positions stay uncalibrated (never defaulted to 0).</li>
-          <li>Baselines (expected shoreline given the tide) land in Phase 5; anomaly scoring in Phase 6.</li>
+          <li>Phase 5/6 prototype: observed positions are stored in pixels with a seaward-positive sign. A tide-conditioned baseline is fitted only when verified, geographically appropriate tide data supports it; otherwise analysis is explicitly movement-only and never reports NORMAL.</li>
+          {status?.limitations?.length ? (
+            <li>
+              <span className="font-medium">Known limitations:</span> {status.limitations.join(" ")}
+            </li>
+          ) : null}
         </ul>
       </Card>
     </div>

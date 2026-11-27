@@ -4,9 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  Film,
+  FlaskConical,
   GaugeCircle,
   LayoutDashboard,
   MapPin,
+  Settings,
   Video,
   Waves,
 } from "lucide-react";
@@ -15,10 +18,12 @@ import clsx from "clsx";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/stations", label: "Stations", icon: MapPin },
-  { href: "/tides", label: "Tides", icon: Waves },
   { href: "/cameras", label: "Cameras", icon: Video },
   { href: "/shoreline", label: "Shoreline", icon: GaugeCircle },
   { href: "/anomalies", label: "Anomalies", icon: Activity },
+  { href: "/recordings", label: "Recordings", icon: Film },
+  { href: "/lab", label: "Test Lab", icon: FlaskConical },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -27,7 +32,6 @@ export function Sidebar() {
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-white/10 bg-deep text-sand">
       <div className="flex items-center gap-2 px-5 py-5">
-        <Waves className="h-6 w-6 text-reef" aria-hidden />
         <div>
           <p className="text-lg font-semibold leading-none">CoastWatch</p>
           <p className="text-xs text-sand/60">Shoreline monitoring</p>

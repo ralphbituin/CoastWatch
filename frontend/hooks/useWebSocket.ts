@@ -15,7 +15,7 @@ export interface RealtimeState {
 /**
  * Connects to the backend WebSocket channel with basic reconnect backoff.
  * Phase 1 uses it to verify realtime connectivity; later phases push
- * shoreline observations, tide updates and anomaly events through it.
+ * shoreline observations, stream updates and anomaly events through it.
  */
 export function useRealtimeStatus(): RealtimeState {
   const [status, setStatus] = useState<RealtimeStatus>("connecting");

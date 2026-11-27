@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Link2, Loader2, MapPin, Unlink, XCircle } from "lucide-react";
+import { CheckCircle2, Link2, Loader2, MapPin, Pencil, Trash2, Unlink, XCircle } from "lucide-react";
 import clsx from "clsx";
 
 import { Card } from "@/components/Card";
@@ -22,6 +22,7 @@ export function StationsView() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editingStationId, setEditingStationId] = useState<number | null>(null);
 
   const [msForm, setMsForm] = useState({
     code: "",
@@ -94,7 +95,62 @@ export function StationsView() {
     setTimeout(() => setNotice(null), 4000);
   };
 
-  const createMonitoringStation = async () => {
+  const resetStationForm = () => {
+    setMsForm({
+      code: "",
+      name: "",
+      country_iso: "PH",
+      region: "",
+      latitude: "",
+      longitude: "",
+      timezone: "Asia/Manila",
+      vertical_datum: "",
+      description: "",
+    });
+    setEditingStationId(null);
+  };
+
+  const beginEditStation = (station: MonitoringStation) => {
+    setMsForm({
+      code: station.code,
+      name: station.name,
+      country_iso: station.country_iso,
+      region: station.region ?? "",
+      latitude: String(station.latitude),
+      longitude: String(station.longitude),
+      timezone: station.timezone,
+      vertical_datum: station.vertical_datum ?? "",
+      description: station.description ?? "",
+    });
+    setEditingStationId(station.id);
+    setError(null);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const removeStation = async (station: MonitoringStation) => {
+    if (
+      !window.confirm(
+        `Remove monitoring station ${station.code}? This also deletes its cameras, shoreline observations, baselines and anomaly events, and clears tide-station links. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await stationsApi.deleteMonitoringStation(station.id);
+      if (selectedId === station.id) setSelectedId(null);
+      if (editingStationId === station.id) resetStationForm();
+      report(`Monitoring station ${station.code} removed.`);
+      await loadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove monitoring station");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveMonitoringStation = async () => {
     setBusy(true);
     setError(null);
     try {
@@ -103,7 +159,7 @@ export function StationsView() {
       if (!msForm.code.trim() || !msForm.name.trim() || Number.isNaN(lat) || Number.isNaN(lng)) {
         throw new Error("Code, name and numeric latitude/longitude are required.");
       }
-      await stationsApi.createMonitoringStation({
+      const payload = {
         code: msForm.code.trim(),
         name: msForm.name.trim(),
         country_iso: msForm.country_iso,
@@ -113,22 +169,19 @@ export function StationsView() {
         timezone: msForm.timezone.trim() || "Asia/Manila",
         vertical_datum: msForm.vertical_datum.trim() || null,
         description: msForm.description.trim() || null,
-      });
-      setMsForm({
-        code: "",
-        name: "",
-        country_iso: "PH",
-        region: "",
-        latitude: "",
-        longitude: "",
-        timezone: "Asia/Manila",
-        vertical_datum: "",
-        description: "",
-      });
-      report("Monitoring station created.");
+      };
+      if (editingStationId) {
+        await stationsApi.updateMonitoringStation(editingStationId, payload);
+        report(`Monitoring station ${payload.code} updated.`);
+      } else {
+        await stationsApi.createMonitoringStation(payload);
+        report("Monitoring station created.");
+      }
+      resetStationForm();
       await loadAll();
+      if (selectedId) await loadLinked(selectedId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create station");
+      setError(err instanceof Error ? err.message : "Failed to save station");
     } finally {
       setBusy(false);
     }
@@ -293,8 +346,14 @@ export function StationsView() {
           )}
         </Card>
 
-        {/* Create monitoring station */}
-        <Card title="Create monitoring station">
+        {/* Create or edit monitoring station */}
+        <Card
+          title={
+            editingStationId
+              ? `Edit monitoring station #${editingStationId}`
+              : "Create monitoring station"
+          }
+        >
           <div className="grid grid-cols-2 gap-3">
             {input("Code", msForm.code, (v) => setMsForm({ ...msForm, code: v }), { placeholder: "e.g. PH-MNL-001" })}
             {input("Name", msForm.name, (v) => setMsForm({ ...msForm, name: v }))}
@@ -315,14 +374,25 @@ export function StationsView() {
             {input("Vertical datum", msForm.vertical_datum, (v) => setMsForm({ ...msForm, vertical_datum: v }), { placeholder: "e.g. MLWS" })}
             <div className="col-span-2">{input("Description", msForm.description, (v) => setMsForm({ ...msForm, description: v }))}</div>
           </div>
-          <button
-            onClick={() => void createMonitoringStation()}
-            disabled={busy}
-            className="mt-3 inline-flex items-center gap-2 rounded-md bg-deep px-4 py-2 text-sm font-medium text-white hover:bg-lagoon disabled:opacity-40"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Create monitoring station
-          </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={() => void saveMonitoringStation()}
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-md bg-deep px-4 py-2 text-sm font-medium text-white hover:bg-lagoon disabled:opacity-40"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {editingStationId ? "Save station changes" : "Create monitoring station"}
+            </button>
+            {editingStationId && (
+              <button
+                onClick={resetStationForm}
+                disabled={busy}
+                className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+              >
+                Cancel edit
+              </button>
+            )}
+          </div>
         </Card>
       </div>
 
@@ -405,6 +475,24 @@ export function StationsView() {
           title={`Tide-station associations — ${selected.code}`}
           subtitle="Associating never substitutes datums or stations — the tide station keeps its own datum and unit"
         >
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => beginEditStation(selected)}
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-md border border-reef px-3 py-2 text-sm font-medium text-reef hover:bg-reef hover:text-white disabled:opacity-40"
+            >
+              <Pencil className="h-4 w-4" aria-hidden />
+              Edit station
+            </button>
+            <button
+              onClick={() => void removeStation(selected)}
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-40"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+              Remove station
+            </button>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <select
               className="rounded-md border border-slate-200 px-3 py-2 text-sm"
