@@ -23,11 +23,13 @@ from app.core.logging import get_logger
 from app.services.camera import manager as camera_manager
 from app.services.camera.base import CameraError
 from app.services.vision.calibration import CalibrationProfile
-from app.services.vision.segmentation import ShorelineSegmenter
+from app.services.vision.roi import apply_roi_to_class_mask, load_active_roi
+from app.services.vision.segmentation import InvalidFrameError, ShorelineSegmenter
 from app.services.vision.shoreline import (
     ShorelineExtractionError,
     ShorelineObservationResult,
     extract_shoreline,
+    extract_shoreline_from_classes,
 )
 
 logger = get_logger(__name__)
@@ -43,24 +45,56 @@ def record_observation(
     quality_score: float | None,
     quality_flags: list[str],
     source_frame_path: str | None,
+    recording_id: str | None = None,
+    frame_index: int | None = None,
+    elapsed_seconds: float | None = None,
+    stream_session_id: str | None = None,
+    ingest_latency_ms: float | None = None,
+    timestamp_source: str | None = None,
+    timestamp_confidence: float | None = None,
+    extraction_status: str | None = None,
+    extraction_reason: str | None = None,
+    class_fractions: dict[str, Any] | None = None,
+    inference_time_ms: float | None = None,
+    horizon_y_px: float | None = None,
+    frame_shape: tuple[int, int] | None = None,
+    previous_signed_position: float | None = None,
 ) -> Any:
-    """Persist one ShorelineObservation row and return it."""
-    from app.models.shoreline import ShorelineObservation
+    """Persist one observation through the single Phase 7 recording service.
 
-    observation = ShorelineObservation(
-        camera_id=camera.id,
+    ``(camera_id, observed_at)`` is the primary key. An exact duplicate timestamp
+    is dropped (and reported) instead of being nudged into a fabricated time;
+    ``(recording_id, frame_index)`` reprocessing updates the existing row.
+    """
+    from app.services.recording.service import write_observation
+
+    outcome = write_observation(
+        session,
+        camera,
         observed_at=observed_at,
-        monitoring_station_id=camera.monitoring_station_id,
+        result=result,
         calibration_id=calibration_id,
-        shoreline_geometry=result.points,
-        calibrated_position_m=result.calibrated_position_m,
-        segmentation_confidence=result.segmentation_confidence,
-        frame_quality_score=quality_score,
-        frame_quality_flags=list(quality_flags),
+        quality_score=quality_score,
+        quality_flags=quality_flags,
         source_frame_path=source_frame_path,
+        recording_id=recording_id,
+        frame_index=frame_index,
+        elapsed_seconds=elapsed_seconds,
+        stream_session_id=stream_session_id,
+        ingest_latency_ms=ingest_latency_ms,
+        timestamp_source=timestamp_source,
+        timestamp_confidence=timestamp_confidence,
+        extraction_status=extraction_status,
+        extraction_reason=extraction_reason,
+        class_fractions=class_fractions,
+        inference_time_ms=inference_time_ms,
+        horizon_y_px=horizon_y_px,
+        frame_shape=frame_shape,
+        previous_signed_position=previous_signed_position,
     )
-    session.add(observation)
-    return observation
+    if outcome.status == "out_of_order":
+        raise ValueError(f"out-of-order shoreline observation rejected: {outcome.reason}")
+    return outcome.observation
 
 
 @dataclass(slots=True)
@@ -155,15 +189,45 @@ class CoastWatchPipeline:
                     "frame_quality_flags": list(quality.flags),
                 },
             )
-
-        # A mask exists (operator-supplied now, or a trained model later).
-        calibration = self._active_calibration(camera)
-        try:
-            result = extract_shoreline(
-                segmentation.mask,
-                calibration=calibration,
-                confidence=segmentation.confidence,
+        except InvalidFrameError as exc:
+            return PipelineResult(
+                station_id=station_id,
+                camera_id=camera_id,
+                observed_at=frame.captured_at,
+                actual_shoreline_m=None,
+                expected_shoreline_m=None,
+                residual_m=None,
+                retreat_velocity_m_s=None,
+                anomaly_score=None,
+                state="DATA_UNRELIABLE",
+                details={
+                    "reason": "invalid_frame",
+                    "message": str(exc),
+                    "frame_quality_score": quality.score,
+                    "frame_quality_flags": list(quality.flags),
+                },
             )
+
+        calibration = self._active_calibration(camera)
+        outline = self._active_roi(camera)
+        class_mask = getattr(segmentation, "class_mask", None)
+        try:
+            if class_mask is not None:
+                # Active path: Ocean/Beach boundary from the 3-class mask.
+                result = extract_shoreline_from_classes(
+                    class_mask,
+                    calibration=calibration,
+                    confidence=segmentation.confidence,
+                    monitoring_polygon=outline,
+                )
+            else:
+                # Compatibility for injected binary-mask segmenters.
+                result = extract_shoreline(
+                    segmentation.mask,
+                    calibration=calibration,
+                    confidence=segmentation.confidence,
+                    monitoring_polygon=outline,
+                )
         except ShorelineExtractionError as exc:
             return PipelineResult(
                 station_id=station_id,
@@ -178,8 +242,56 @@ class CoastWatchPipeline:
                 details={"reason": "shoreline_extraction_failed", "message": str(exc)},
             )
 
+        if not getattr(result, "shoreline_available", True):
+            return PipelineResult(
+                station_id=station_id,
+                camera_id=camera_id,
+                observed_at=frame.captured_at,
+                actual_shoreline_m=None,
+                expected_shoreline_m=None,
+                residual_m=None,
+                retreat_velocity_m_s=None,
+                anomaly_score=None,
+                state="DATA_UNRELIABLE",
+                details={
+                    "reason": "no_shoreline",
+                    "message": result.reason or "no Ocean/Beach contact in this frame",
+                    "valid_columns": getattr(result, "valid_columns", 0),
+                    "segmentation_confidence": segmentation.confidence,
+                    "inference_ms": getattr(segmentation, "inference_ms", None),
+                    "architecture": getattr(segmentation, "architecture", None),
+                    "checkpoint_sha256": getattr(segmentation, "checkpoint_sha256", None),
+                    "frame_quality_score": quality.score,
+                    "frame_quality_flags": list(quality.flags),
+                },
+            )
+
         calibration_id = camera.active_calibration_id if calibration else None
-        record_observation(
+        from app.services.video.pipeline import _horizon_y
+
+        # Horizon describes the monitored area, not a distant false shoreline.
+        monitored_mask = (
+            apply_roi_to_class_mask(class_mask, outline) if class_mask is not None else None
+        )
+        horizon = _horizon_y(monitored_mask) if monitored_mask is not None else None
+        # Provenance is honest per source. Uploaded stills only have file mtime,
+        # which is labelled as such (low confidence) rather than presented as a
+        # capture time. Virtual video-file clocks are labelled likewise.
+        if camera.camera_type == "upload":
+            timestamp_source, timestamp_confidence = "file_mtime", 0.3
+        elif camera.camera_type == "video":
+            timestamp_source, timestamp_confidence = "provider_virtual_clock", 0.3
+        else:
+            timestamp_source, timestamp_confidence = "stream_wall_clock", 0.6
+        # Class fractions remain full-frame model diagnostics. The extracted
+        # shoreline and horizon above are restricted to the monitoring outline.
+        class_fractions = {
+            name: row.get("fraction")
+            for name, row in getattr(segmentation, "class_statistics", {}).items()
+        }
+        from app.services.recording.service import write_observation
+
+        outcome = write_observation(
             self._session,
             camera,
             observed_at=frame.captured_at,
@@ -188,7 +300,34 @@ class CoastWatchPipeline:
             quality_score=quality.score,
             quality_flags=list(quality.flags),
             source_frame_path=None,
+            recording_id=f"adhoc-{camera.id}",
+            frame_index=self._next_adhoc_frame_index(camera.id),
+            elapsed_seconds=None,
+            timestamp_source=timestamp_source,
+            timestamp_confidence=timestamp_confidence,
+            class_fractions=class_fractions,
+            inference_time_ms=getattr(segmentation, "inference_ms", None),
+            horizon_y_px=horizon,
+            frame_shape=frame.image.shape[:2],
         )
+        observation = outcome.observation
+        if observation is None:
+            return PipelineResult(
+                station_id=station_id,
+                camera_id=camera_id,
+                observed_at=frame.captured_at,
+                actual_shoreline_m=None,
+                expected_shoreline_m=None,
+                residual_m=None,
+                retreat_velocity_m_s=None,
+                anomaly_score=None,
+                state="DATA_UNRELIABLE",
+                details={
+                    "reason": "out_of_order_observation",
+                    "message": outcome.reason,
+                    "timestamp_source": timestamp_source,
+                },
+            )
         try:
             self._session.commit()
         except Exception as exc:
@@ -207,6 +346,22 @@ class CoastWatchPipeline:
                 details={"reason": "persistence_failed", "message": str(exc)},
             )
 
+        # Feed the rolling detector exactly once for the stored row. The
+        # detector is warm-started from stored history so a one-off cycle is not
+        # blind. A persistence failure above never reaches this point.
+        rolling_row = None
+        rolling_error = None
+        if outcome.status in {"persisted", "updated"}:
+            try:
+                rolling_row = self._feed_rolling_once(camera, observation)
+                self._session.commit()
+            except Exception as exc:  # pragma: no cover - defensive
+                self._session.rollback()
+                rolling_error = str(exc)
+                logger.warning("pipeline: rolling update failed for camera %s: %s", camera_id, exc)
+        elif outcome.status == "duplicate":
+            rolling_error = "duplicate_timestamp: rolling detector not fed twice"
+
         return PipelineResult(
             station_id=station_id,
             camera_id=camera_id,
@@ -220,12 +375,92 @@ class CoastWatchPipeline:
             details={
                 "reason": "observation_persisted",
                 "points": len(result.points),
+                "segments": len(getattr(result, "segments", []) or []),
+                "valid_columns": getattr(result, "valid_columns", 0),
+                "orientation_used": getattr(result, "orientation_used", None),
+                "bridge_kernel_px": getattr(result, "bridge_kernel_px", None),
+                "median_kernel_px": getattr(result, "median_kernel_px", None),
+                "max_gap_px": getattr(result, "max_gap_px", None),
+                "margin_px": getattr(result, "margin_px", None),
                 "calibration_version": result.calibration_version,
+                "segmentation_confidence": segmentation.confidence,
+                "inference_ms": getattr(segmentation, "inference_ms", None),
+                "architecture": getattr(segmentation, "architecture", None),
+                "checkpoint_sha256": getattr(segmentation, "checkpoint_sha256", None),
+                "class_fractions": class_fractions,
                 "frame_quality_score": quality.score,
                 "frame_quality_flags": list(quality.flags),
-                "note": "baseline/anomaly stages land in Phases 5-6; no verdict yet",
+                "timestamp_source": timestamp_source,
+                "timestamp_confidence": timestamp_confidence,
+                "signed_position_px": getattr(observation, "signed_position_px", None),
+                "rolling_baseline_px": (
+                    None if rolling_row is None else rolling_row.rolling_baseline_px
+                ),
+                "rolling_classification": (
+                    None if rolling_row is None else rolling_row.classification
+                ),
+                "rolling_error": rolling_error,
+                "note": "one canonical observation row; rolling row persisted separately",
             },
         )
+
+    def _next_adhoc_frame_index(self, camera_id: int) -> int:
+        from sqlalchemy import func, select
+
+        from app.models.shoreline import ShorelineObservation
+
+        if self._session is None:  # pragma: no cover - guarded by process_once
+            return 1
+        current = self._session.scalar(
+            select(func.max(ShorelineObservation.frame_index)).where(
+                ShorelineObservation.recording_id == f"adhoc-{camera_id}"
+            )
+        )
+        return int(current or 0) + 1
+
+    def _feed_rolling_once(self, camera: Any, observation: Any) -> Any:
+        """Warm-start from stored history and update the detector once."""
+        from app.services.anomaly.rolling_baseline import RollingBaselineConfig
+        from app.services.recording.service import (
+            load_rolling_history,
+            observation_to_rolling,
+            persist_rolling_row,
+        )
+
+        config = RollingBaselineConfig(
+            nominal_interval_seconds=30.0,
+            frame_height=(float(camera.resolution_height) if camera.resolution_height else None),
+        )
+        history = (
+            []
+            if self._session is None
+            else load_rolling_history(
+                self._session,
+                camera.id,
+                window_seconds=config.window_seconds,
+                before=observation.observed_at,
+            )
+        )
+        from app.services.anomaly.rolling_baseline import RollingBaselineDetector
+
+        detector = RollingBaselineDetector(config)
+        detector.warm_start([observation_to_rolling(item) for item in history])
+        row = detector.update(observation_to_rolling(observation))
+        if self._session is not None:  # pragma: no cover - guarded by process_once
+            persist_rolling_row(
+                self._session,
+                camera,
+                row,
+                recording_id=f"adhoc-{camera.id}",
+                frame_index=observation.frame_index,
+            )
+        return row
+
+    def _active_roi(self, camera: Any) -> dict[str, Any] | None:
+        """The active calibration's operator monitoring outline, if any."""
+        if self._session is None:  # pragma: no cover - guarded by process_once
+            return None
+        return load_active_roi(self._session, camera)
 
     def _active_calibration(self, camera: Any) -> CalibrationProfile | None:
         """Build a CalibrationProfile from the camera's active calibration row."""

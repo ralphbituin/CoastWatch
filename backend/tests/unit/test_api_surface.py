@@ -34,17 +34,6 @@ def test_unknown_route_uses_error_envelope(client: TestClient) -> None:
     assert response.json()["error"]["code"] == "http_error"
 
 
-def test_phase_stub_modules_report_phase(client: TestClient) -> None:
-    stubs = (("anomalies", 6),)
-    for module, phase in stubs:
-        response = client.get(f"{API}/{module}")
-        assert response.status_code == 501, module
-        body = response.json()
-        assert body["module"] == module
-        assert body["phase"] == phase
-        assert body["implemented"] is False
-
-
 def test_openapi_schema_includes_tide_routes(client: TestClient) -> None:
     response = client.get("/openapi.json")
     assert response.status_code == 200
