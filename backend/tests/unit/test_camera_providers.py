@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+import time
+from datetime import UTC, datetime
 
 import numpy as np
 import pytest
@@ -31,6 +32,8 @@ class FakeCapture:
         self._opened = FakeCapture.open_ok
         self.props: dict[int, float] = {}
         self.released = False
+        self.grabs = 0
+        self.retrieves = 0
         FakeCapture.instances.append(self)
 
     def isOpened(self) -> bool:  # noqa: N802 - mirrors cv2 API
@@ -44,7 +47,14 @@ class FakeCapture:
         return self.props.get(prop, 0.0)
 
     def grab(self) -> bool:
-        return self.read_ok
+        self.grabs += 1
+        return FakeCapture.read_ok
+
+    def retrieve(self):
+        self.retrieves += 1
+        if FakeCapture.read_ok and self._opened and not self.released:
+            return True, np.full((48, 64, 3), 127, dtype=np.uint8)
+        return False, None
 
     def read(self):
         if FakeCapture.read_ok and self._opened and not self.released:
@@ -90,6 +100,7 @@ def test_rtsp_connect_and_read_frame(monkeypatch: pytest.MonkeyPatch) -> None:
     provider.read_frame()
     assert provider.get_status().frames_captured == 2
     assert provider.get_status().healthy is True
+    provider.disconnect()
 
 
 def test_rtsp_connect_failure_raises(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -105,10 +116,54 @@ def test_rtsp_read_failure_raises_and_tracks(monkeypatch: pytest.MonkeyPatch) ->
     provider = RTSPCameraProvider("rtsp://cam.local/stream", camera_id=1)
     provider.connect()
     FakeCapture.read_ok = False
+    # The drain thread observes the failure asynchronously.
+    deadline = time.monotonic() + 2.0
+    while provider.get_status().healthy and time.monotonic() < deadline:
+        time.sleep(0.01)
     with pytest.raises(FrameUnavailableError):
         provider.read_frame()
     status = provider.get_status()
     assert status.healthy is False
+    provider.disconnect()
+
+
+def test_rtsp_drain_thread_returns_latest_frame_quickly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_rtsp(monkeypatch)
+    provider = RTSPCameraProvider("rtsp://cam.local/stream", camera_id=7, stall_timeout_s=5.0)
+    provider.connect()
+    time.sleep(0.2)  # let the drain thread grab a few frames
+    started = time.perf_counter()
+    frame = provider.read_frame()
+    elapsed_ms = (time.perf_counter() - started) * 1000.0
+    cap = FakeCapture.instances[-1]
+    gap_ms = (datetime.now(UTC) - frame.captured_at).total_seconds() * 1000.0
+    print(
+        f"drain: grabbed={cap.grabs} returned={provider.get_status().frames_captured} "
+        f"read_frame_ms={elapsed_ms:.2f} newest_frame_age_ms={gap_ms:.2f}"
+    )
+    assert frame.image.shape == (48, 64, 3)
+    assert cap.grabs > 1  # the socket is drained between sampling reads
+    assert elapsed_ms < 100.0
+    assert gap_ms < 100.0
+    assert provider.get_status().healthy is True
+    provider.disconnect()
+
+
+def test_rtsp_status_reports_stream_stalled(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_rtsp(monkeypatch)
+    provider = RTSPCameraProvider("rtsp://cam.local/stream", camera_id=1, stall_timeout_s=1.0)
+    provider.connect()
+    provider.read_frame()
+    provider._stop_drain()  # noqa: SLF001 - simulate a live socket stuck with no frames
+    with provider._lock:  # noqa: SLF001
+        provider._latest_monotonic = time.monotonic() - 5.0  # noqa: SLF001
+    status = provider.get_status()
+    assert status.connected is True
+    assert status.healthy is False
+    assert status.message == "stream stalled"
+    provider.disconnect()
 
 
 def test_rtsp_blank_url_rejected() -> None:
@@ -123,12 +178,16 @@ def test_rtsp_reconnects_after_failures(monkeypatch: pytest.MonkeyPatch) -> None
     )
     provider.connect()
     FakeCapture.read_ok = False
+    deadline = time.monotonic() + 2.0
+    while provider.get_status().healthy and time.monotonic() < deadline:
+        time.sleep(0.01)
     for _ in range(3):  # exhaust consecutive-failure budget -> stream dropped
         with pytest.raises(FrameUnavailableError):
             provider.read_frame()
     FakeCapture.read_ok = True
     frame = provider.read_frame()  # should auto-reconnect
     assert frame.image is not None
+    provider.disconnect()
 
 
 # ---------------------------------------------------------------------------

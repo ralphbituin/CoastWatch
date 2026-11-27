@@ -29,6 +29,7 @@ from app.services.camera.rtsp import RTSPCameraProvider
 from app.services.camera.upload import UploadCameraProvider, camera_upload_dir
 from app.services.camera.usb import USBCameraProvider
 from app.services.camera.video import VideoFileCameraProvider, resolve_video_path
+from app.services.camera.youtube import YouTubeLiveProvider, redact_youtube_url
 from app.services.vision.preprocessing import (
     FrameQuality,
     PreprocessConfig,
@@ -70,6 +71,15 @@ def build_provider(camera: Camera) -> CameraProvider:
             raise CameraConnectionError(f"camera {camera.code} has no video_path configured")
         source = resolve_video_path(settings.data_dir, camera.video_path)
         return VideoFileCameraProvider(source, camera_id=camera.id, fps=camera.fps)
+    if camera.camera_type == "youtube_live":
+        if not camera.youtube_url:
+            raise CameraConnectionError(f"camera {camera.code} has no youtube_url configured")
+        return YouTubeLiveProvider(
+            camera.youtube_url,
+            camera_id=camera.id,
+            quality=camera.stream_quality or "best",
+            stream_format=camera.stream_format,
+        )
     raise CameraConnectionError(f"unsupported camera_type: {camera.camera_type!r}")
 
 
@@ -121,6 +131,20 @@ def provider_status(camera: Camera) -> CameraStatus:
             message="no live connection in this process (POST test-connection or capture a frame)",
         )
     return provider.get_status()
+
+
+def provider_details(camera: Camera) -> dict[str, Any]:
+    """Optional live-source details (resolved format, is_live) if known."""
+    with _lock:
+        provider = _providers.get(camera.id)
+    if provider is None:
+        return {}
+    details: dict[str, Any] = {}
+    for key in ("is_live", "resolved_format", "reconnect_count"):
+        value = getattr(provider, key, None)
+        if value is not None:
+            details[key] = value
+    return details
 
 
 def test_connection(
@@ -187,3 +211,10 @@ def redact_rtsp_url(url: str | None) -> str | None:
         host = rest.split("@", 1)[1]
         return f"{scheme}://***@{host}"
     return url
+
+
+def redact_camera_source(camera: Camera) -> str | None:
+    """Redacted display URL for a camera source (never tokens/cookies)."""
+    if camera.camera_type == "youtube_live":
+        return redact_youtube_url(camera.youtube_url)
+    return redact_rtsp_url(camera.rtsp_url)
