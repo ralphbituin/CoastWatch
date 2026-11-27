@@ -89,9 +89,7 @@ class VideoProcessRequest(BaseModel):
     persistence: int = Field(default=3, ge=1, le=20)
     z_threshold: float = Field(default=3.5, gt=0.0, le=20.0)
     save_frames: bool = False
-    detector_mode: Literal[
-        "auto", "rolling_baseline", "tide_conditioned", "movement_only"
-    ] = "auto"
+    detector_mode: Literal["auto", "rolling_baseline", "tide_conditioned", "movement_only"] = "auto"
     rolling: RollingBaselineOptions = Field(default_factory=RollingBaselineOptions)
 
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 
-from fastapi import Depends, Query
+from fastapi import Query
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.exceptions import DatabaseUnavailableError
 from app.database.session import get_db
-from app.services.tides.namria import NAMRIATideProvider
 
 __all__ = [
     "get_db",
@@ -24,7 +23,6 @@ __all__ = [
     "Settings",
     "require_db",
     "database_health",
-    "get_tide_provider",
     "pagination_params",
 ]
 
@@ -75,11 +73,6 @@ def database_health(db: Session) -> dict[str, object]:
             info[key] = None
 
     return info
-
-
-def get_tide_provider(db: Session = Depends(get_db)) -> NAMRIATideProvider:
-    """Provide a request-scoped NAMRIA tide provider."""
-    return NAMRIATideProvider(db)
 
 
 def pagination_params(

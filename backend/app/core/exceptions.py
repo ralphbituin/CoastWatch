@@ -27,10 +27,17 @@ class CoastWatchError(Exception):
     status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR
     code: str = "internal_error"
 
-    def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.details = details or {}
+        self.headers = headers or {}
 
 
 class NotFoundError(CoastWatchError):
@@ -74,6 +81,13 @@ class DatabaseUnavailableError(CoastWatchError):
     code = "database_unavailable"
 
 
+class PreviewBusyError(CoastWatchError):
+    """Another on-demand preview inference is already running for this camera."""
+
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    code = "preview_busy"
+
+
 def _envelope(code: str, message: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
     return {"error": {"code": code, "message": message, "details": details or {}}}
 
@@ -87,6 +101,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=exc.status_code,
             content=_envelope(exc.code, exc.message, exc.details),
+            headers=exc.headers or None,
         )
 
     @app.exception_handler(RequestValidationError)

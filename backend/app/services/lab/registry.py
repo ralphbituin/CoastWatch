@@ -125,9 +125,7 @@ class LabRegistry:
     def create(self, kind: str, *, timezone: str, persist: bool, camera_id: int | None) -> LabRun:
         settings = get_settings()
         if self.active_count() >= int(settings.lab_max_concurrent_runs):
-            raise ValueError(
-                f"too many active lab runs (max {settings.lab_max_concurrent_runs})"
-            )
+            raise ValueError(f"too many active lab runs (max {settings.lab_max_concurrent_runs})")
         self.cleanup_expired()
         run_id = f"lab-{uuid.uuid4().hex[:16]}"
         temp_dir = self._root() / run_id

@@ -52,10 +52,6 @@ def test_openapi_schema_includes_tide_routes(client: TestClient) -> None:
     for expected in (
         "/api/v1/health",
         "/api/v1/tides/stations",
-        "/api/v1/tides/at",
-        "/api/v1/tides/current",
-        "/api/v1/tides/chart",
-        "/api/v1/tides/imports",
         "/api/v1/stations",
         "/api/v1/countries",
         "/api/v1/cameras",
