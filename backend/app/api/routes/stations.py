@@ -4,17 +4,24 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
+from app.models.camera import Camera
 from app.models.country import Country
 from app.models.station import MonitoringStation
 from app.models.tide import TideStation
 from app.schemas.common import Message
-from app.schemas.stations import MonitoringStationCreate, MonitoringStationRead
+from app.schemas.stations import (
+    MonitoringStationCreate,
+    MonitoringStationRead,
+    MonitoringStationUpdate,
+)
 from app.schemas.tides import TideStationRead
+from app.services.camera import manager as camera_manager
+from app.services.live.capture import get_live_manager
 
 router = APIRouter(tags=["stations"])
 
@@ -135,6 +142,78 @@ def get_station(station_id: int, db: Session = Depends(get_db)) -> MonitoringSta
     station = _get_station(db, station_id)
     counts = _station_counts(db, [station.id])
     return _to_read(station, counts.get(station.id, 0))
+
+
+@router.patch(
+    "/{station_id}",
+    response_model=MonitoringStationRead,
+    summary="Update a monitoring station",
+)
+def update_station(
+    station_id: int, payload: MonitoringStationUpdate, db: Session = Depends(get_db)
+) -> MonitoringStationRead:
+    station = _get_station(db, station_id)
+    updates = payload.model_dump(exclude_unset=True)
+    if not updates:
+        counts = _station_counts(db, [station.id])
+        return _to_read(station, counts.get(station.id, 0))
+
+    if "country_iso" in updates:
+        country = _country_by_iso(db, str(updates["country_iso"]))
+        station.country_id = country.id
+        station.country = country
+        updates.pop("country_iso")
+
+    for key, value in updates.items():
+        setattr(station, key, value)
+
+    if "latitude" in updates or "longitude" in updates:
+        station.location = WKTElement(  # type: ignore[assignment]
+            f"POINT({station.longitude} {station.latitude})", srid=4326
+        )
+
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise ConflictError(
+            f"Monitoring station update failed (code already exists or "
+            f"constraint failed): {station.code}",
+            details={"station_id": station.id},
+        ) from exc
+    db.refresh(station)
+    counts = _station_counts(db, [station.id])
+    return _to_read(station, counts.get(station.id, 0))
+
+
+@router.delete(
+    "/{station_id}",
+    response_model=Message,
+    summary="Delete a monitoring station and its dependent records",
+)
+def delete_station(station_id: int, db: Session = Depends(get_db)) -> Message:
+    station = _get_station(db, station_id)
+    code = station.code
+    camera_ids = list(
+        db.scalars(select(Camera.id).where(Camera.monitoring_station_id == station_id)).all()
+    )
+    for camera_id in camera_ids:
+        live = get_live_manager().status(camera_id)
+        if live.state in {"starting", "running", "reconnecting"}:
+            get_live_manager().stop_camera(camera_id)
+        camera_manager.drop_provider(camera_id)
+    try:
+        # Bulk delete relies on the database ON DELETE rules (cameras and their
+        # dependent rows cascade; tide-station links are set null).
+        db.execute(delete(MonitoringStation).where(MonitoringStation.id == station_id))
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise ConflictError(
+            f"Could not delete monitoring station {code}: {exc}",
+            details={"station_id": station_id},
+        ) from exc
+    return Message(message=f"monitoring station {code} deleted")
 
 
 @router.get(

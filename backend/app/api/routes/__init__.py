@@ -13,9 +13,12 @@ from app.api.routes import (
     cameras,
     countries,
     health,
+    lab,
     shorelines,
     stations,
+    streams,
     tides,
+    videos,
     websocket,
 )
 
@@ -27,6 +30,9 @@ api_router.include_router(tides.router, prefix="/tides")
 api_router.include_router(cameras.router, prefix="/cameras")
 api_router.include_router(shorelines.router, prefix="/shorelines")
 api_router.include_router(anomalies.router, prefix="/anomalies")
+api_router.include_router(videos.router, prefix="/videos")
+api_router.include_router(streams.router, prefix="/streams")
+api_router.include_router(lab.router, prefix="/lab")
 api_router.include_router(websocket.router)
 
 __all__ = ["api_router"]

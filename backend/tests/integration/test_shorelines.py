@@ -1,9 +1,10 @@
-"""Integration tests for the Phase 4 vision module (non-model paths).
+"""Integration tests for the Phase 4 vision module.
 
 Requires a running PostgreSQL + TimescaleDB with migrations applied and
-``COASTWATCH_INTEGRATION=1``. The segmentation model does not exist yet, so
-waterlines are exercised via **operator-labelled masks** (synthetic, clearly
-labelled as such) and the synthetic video-file virtual camera.
+``COASTWATCH_INTEGRATION=1``. Waterlines are exercised via **operator-labelled
+masks** (synthetic, clearly labelled as such), a three-class ONNX fixture, and
+the synthetic video-file virtual camera. Fixture predictions prove wiring, not
+segmentation accuracy.
 """
 
 from __future__ import annotations
@@ -223,7 +224,11 @@ def test_operator_mask_observation_end_to_end(client: TestClient) -> None:
     mask = _synthetic_water_mask_png(width=120, height=80, sea_top=45)
     upload = client.post(
         f"{API}/shorelines/observations",
-        data={"camera_id": str(camera["id"]), "seaward_axis": "0.0,1.0"},
+        data={
+            "camera_id": str(camera["id"]),
+            "seaward_axis": "0.0,1.0",
+            "observed_at": "2026-11-25T06:00:00+00:00",
+        },
         files={"file": ("mask.png", io.BytesIO(mask), "image/png")},
     )
     assert upload.status_code == 201, upload.text
@@ -233,6 +238,10 @@ def test_operator_mask_observation_end_to_end(client: TestClient) -> None:
     assert sum(ys) / len(ys) == pytest.approx(45.0, abs=1.5)
     assert body["calibrated_position_m"] == pytest.approx(45.0, abs=1.5)
     assert body["segmentation_confidence"] == 1.0
+    # The binary operator path also exposes one ordered segment, and the
+    # legacy flat geometry is exactly its concatenation.
+    assert len(body["shoreline_segments"]) == 1
+    assert body["shoreline_segments"][0] == body["shoreline_geometry"]
 
     latest = client.get(f"{API}/shorelines/observations/latest?camera_id={camera['id']}")
     assert latest.status_code == 200
@@ -247,15 +256,154 @@ def test_operator_mask_observation_end_to_end(client: TestClient) -> None:
     assert any(c["camera_id"] == camera["id"] for c in calibrations.json())
 
 
-def test_baselines_report_phase_5(client: TestClient) -> None:
+def test_baselines_report_explicit_availability(client: TestClient) -> None:
     response = client.get(f"{API}/shorelines/baselines")
-    assert response.status_code == 501
-    assert response.json()["error"]["details"]["phase"] == 5
+    assert response.status_code == 200
+    body = response.json()
+    # Either a provisional baseline exists, or the endpoint says why it does
+    # not. It must never return an empty "normal" model.
+    assert "available" in body
+    assert body["status"] in {"provisional", "available", "unavailable"}
+    if not body["available"]:
+        assert body["reason"]
 
 
-def test_module_status_honest_about_missing_model(client: TestClient) -> None:
+def test_module_status_reflects_artifact_presence(client: TestClient) -> None:
     response = client.get(f"{API}/shorelines")
     assert response.status_code == 200
     body = response.json()
-    assert body["segmentation_model_available"] is False
+    from app.services.vision.segmentation import find_model_artifact, model_status
+
+    # Honest in both directions: availability is derived from the artifact on
+    # disk, never hard-coded.
+    assert body["segmentation_model_available"] is (find_model_artifact() is not None)
     assert "POST /shorelines/observe" in body["implemented_endpoints"]
+    status = model_status()
+    if status.get("config_valid"):
+        assert body["architecture"] == "SegFormer"
+        assert body["encoder"] == "MiT-B2"
+        assert body["class_ids"] == {"Beach": 0, "Ocean": 1, "Sky": 2}
+        assert body["water_classes"] == [1]
+        assert body["checkpoint_sha256"] == status["checkpoint_sha256"]
+        assert body["limitations"]
+
+
+def _jpeg_bytes(frame: np.ndarray) -> bytes:
+    ok, buffer = cv2.imencode(".jpg", frame)
+    assert ok
+    return buffer.tobytes()
+
+
+def test_observe_with_artifact_end_to_end(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The trained-model path replaces the operator-mask fallback.
+
+    A three-class fixture ONNX model is used (Sky above, Ocean, Beach below); it
+    is not a trained network, so only the contract is asserted, not accuracy.
+    """
+    from app.services.vision import segmentation
+    from tests.onnx_fixture import frame_bgr, write_artifact
+
+    artifact_root = tmp_path / "models"
+    write_artifact(artifact_root / "shoreline-segmentation")
+    monkeypatch.setattr(
+        segmentation,
+        "get_settings",
+        lambda: type("Settings", (), {"model_path": str(artifact_root)})(),
+    )
+    segmentation._load_session.cache_clear()
+
+    station_id = _station_id(client)
+    camera = _create_camera(client, station_id, camera_type="upload")
+    calibration = client.post(
+        f"{API}/cameras/{camera['id']}/calibrations",
+        json={
+            "homography_matrix": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+            "meters_per_pixel": 0.05,
+            "notes": "synthetic identity calibration (model test)",
+        },
+    )
+    assert calibration.status_code == 201, calibration.text
+
+    upload = client.post(
+        f"{API}/cameras/{camera['id']}/upload-frame",
+        files={"file": ("frame.jpg", io.BytesIO(_jpeg_bytes(frame_bgr(120, 80))), "image/jpeg")},
+    )
+    assert upload.status_code == 200, upload.text
+
+    response = client.post(
+        f"{API}/shorelines/observe",
+        json={"station_id": station_id, "camera_id": camera["id"]},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["state"] == "OBSERVED", body
+    assert body["details"]["reason"] == "observation_persisted"
+    # Border margins are now excluded, so the exact count can be slightly below
+    # the frame width; the extracted line must still span the frame.
+    assert 0 < body["details"]["points"] <= 120
+    assert body["details"]["segments"] >= 1
+    assert body["details"]["orientation_used"] in {
+        "land_below",
+        "land_above",
+        "land_left",
+        "land_right",
+    }
+
+    latest = client.get(f"{API}/shorelines/observations/latest?camera_id={camera['id']}")
+    assert latest.status_code == 200
+    stored = latest.json()
+    # A model confidence is a probability and therefore < 1.0, unlike the
+    # operator-mask path which is treated as ground truth (exactly 1.0).
+    assert stored["segmentation_confidence"] is not None
+    assert 0.0 < stored["segmentation_confidence"] < 1.0
+    assert 0 < len(stored["shoreline_geometry"]) <= 120
+    assert stored["shoreline_segments"]
+    flattened = [point for segment in stored["shoreline_segments"] for point in segment]
+    assert flattened == stored["shoreline_geometry"]
+    assert stored["calibration_id"] is not None
+
+    # The uploaded still keeps its captured_at. Phase 7 drops the exact
+    # duplicate timestamp instead of inventing a nudged capture time, and the
+    # one-off cycle still reports that the row is available.
+    second = client.post(
+        f"{API}/shorelines/observe",
+        json={"station_id": station_id, "camera_id": camera["id"]},
+    )
+    assert second.status_code == 200, second.text
+    assert second.json()["state"] == "OBSERVED", second.json()
+    rows = client.get(f"{API}/shorelines/observations?camera_id={camera['id']}").json()
+    assert len(rows) == 1
+
+
+def test_observe_with_broken_artifact_reports_unreliable(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.services.vision import segmentation
+    from tests.onnx_fixture import frame_bgr, write_artifact
+
+    artifact = write_artifact(tmp_path / "models" / "shoreline-segmentation")
+    (artifact / "config.json").unlink()
+    monkeypatch.setattr(
+        segmentation,
+        "get_settings",
+        lambda: type("Settings", (), {"model_path": str(tmp_path / "models")})(),
+    )
+    segmentation._load_session.cache_clear()
+
+    station_id = _station_id(client)
+    camera = _create_camera(client, station_id, camera_type="upload")
+    client.post(
+        f"{API}/cameras/{camera['id']}/upload-frame",
+        files={"file": ("frame.jpg", io.BytesIO(_jpeg_bytes(frame_bgr(80, 60))), "image/jpeg")},
+    )
+    response = client.post(
+        f"{API}/shorelines/observe",
+        json={"station_id": station_id, "camera_id": camera["id"]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["state"] == "DATA_UNRELIABLE"
+    assert body["details"]["reason"] == "segmentation_model_unavailable"
+    assert "config.json" in body["details"]["message"]

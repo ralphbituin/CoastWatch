@@ -9,9 +9,8 @@ here fabricates a waterline: unavailable segmentation reports
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import cv2
 import numpy as np
@@ -27,9 +26,11 @@ from app.core.exceptions import (
 )
 from app.core.logging import get_logger
 from app.models.camera import Camera, CameraCalibration
-from app.models.shoreline import ShorelineObservation
+from app.models.shoreline import ShorelineBaseline, ShorelineObservation
 from app.models.station import MonitoringStation
 from app.schemas.shorelines import (
+    ShorelineBaselineRead,
+    ShorelineBaselineStatus,
     ShorelineCalibrationRead,
     ShorelineModuleStatus,
     ShorelineObservationDetail,
@@ -41,7 +42,7 @@ from app.services.pipeline import CoastWatchPipeline, record_observation
 from app.services.vision.calibration import (
     CalibrationProfile,
 )
-from app.services.vision.segmentation import find_model_artifact
+from app.services.vision.segmentation import model_status
 from app.services.vision.shoreline import (
     ShorelineExtractionError,
     extract_shoreline,
@@ -78,6 +79,23 @@ def _observation_summary(
         frame_quality_score=row.frame_quality_score,
         frame_quality_flags=list(row.frame_quality_flags or []),
         created_at=row.created_at,
+        recording_id=row.recording_id,
+        frame_index=row.frame_index,
+        extraction_status=row.extraction_status,
+        extraction_reason=row.extraction_reason,
+        shoreline_position_px=row.shoreline_position_px,
+        signed_position_px=row.signed_position_px,
+        position_axis=row.position_axis,
+        shoreline_axis=row.shoreline_axis,
+        measured_coverage=row.measured_coverage,
+        segment_count=row.segment_count,
+        inference_time_ms=row.inference_time_ms,
+        horizon_y_px=row.horizon_y_px,
+        capture_timestamp_source=row.capture_timestamp_source,
+        capture_timestamp_confidence=row.capture_timestamp_confidence,
+        elapsed_seconds=row.elapsed_seconds,
+        stream_session_id=row.stream_session_id,
+        ingest_latency_ms=row.ingest_latency_ms,
     )
 
 
@@ -94,18 +112,58 @@ def _observation_detail(
         station_code=station_code,
         calibration_id=row.calibration_id,
         shoreline_geometry=row.shoreline_geometry,
+        shoreline_segments=row.shoreline_segments,
+        shoreline_axis=row.shoreline_axis,
+        interpolated_ranges=row.interpolated_ranges,
+        measured_coverage=row.measured_coverage,
         calibrated_position_m=row.calibrated_position_m,
         segmentation_confidence=row.segmentation_confidence,
         frame_quality_score=row.frame_quality_score,
         frame_quality_flags=list(row.frame_quality_flags or []),
         source_frame_path=row.source_frame_path,
         created_at=row.created_at,
+        recording_id=row.recording_id,
+        frame_index=row.frame_index,
+        extraction_status=row.extraction_status,
+        extraction_reason=row.extraction_reason,
+        shoreline_position_px=row.shoreline_position_px,
+        signed_position_px=row.signed_position_px,
+        position_axis=row.position_axis,
+        position_sign=row.position_sign,
+        segment_count=row.segment_count,
+        segment_measurements=row.segment_measurements,
+        class_fractions=row.class_fractions,
+        inference_time_ms=row.inference_time_ms,
+        capture_timestamp_source=row.capture_timestamp_source,
+        capture_timestamp_confidence=row.capture_timestamp_confidence,
+        horizon_y_px=row.horizon_y_px,
+        elapsed_seconds=row.elapsed_seconds,
+        stream_session_id=row.stream_session_id,
+        ingest_latency_ms=row.ingest_latency_ms,
     )
 
 
 @router.get("", response_model=ShorelineModuleStatus, summary="Shorelines module status")
 def shorelines_status() -> ShorelineModuleStatus:
-    available = find_model_artifact() is not None
+    status = model_status()
+    available = bool(status.get("available"))
+    config_valid = bool(status.get("config_valid"))
+    if not available:
+        model_note = (
+            "No segmentation model is provisioned; waterlines require operator-labelled masks."
+        )
+    elif not config_valid:
+        model_note = (
+            "Model artifact present but its config.json is unusable: " f"{status.get('reason')}"
+        )
+    else:
+        model_note = (
+            "SegFormer MiT-B2 loaded from MODEL_PATH/shoreline-segmentation "
+            "(classes Beach=0, Ocean=1, Sky=2; water = Ocean only)."
+        )
+    notes = [model_note, "Baselines land in Phase 5; anomalies in Phase 6."]
+    for limitation in status.get("limitations", []):
+        notes.append(f"Model limitation: {limitation}")
     return ShorelineModuleStatus(
         segmentation_model_available=available,
         implemented_endpoints=[
@@ -115,13 +173,19 @@ def shorelines_status() -> ShorelineModuleStatus:
             "POST /shorelines/observe",
             "GET /shorelines/calibrations",
         ],
-        notes=[
-            "No segmentation model is provisioned yet; "
-            "waterlines come from operator-labelled masks."
-            if not available
-            else "Segmentation artifact detected, but inference wiring is not complete.",
-            "Baselines land in Phase 5; anomalies in Phase 6.",
-        ],
+        notes=notes,
+        architecture=status.get("architecture"),
+        encoder=status.get("encoder"),
+        model_version=status.get("model_version"),
+        class_names=status.get("class_names"),
+        class_ids=status.get("class_ids"),
+        water_classes=status.get("water_classes"),
+        ignore_index=status.get("ignore_index"),
+        checkpoint_id=status.get("checkpoint_id"),
+        checkpoint_sha256=status.get("checkpoint_sha256"),
+        providers=list(status.get("providers", [])),
+        precision=status.get("precision", {}) or {},
+        limitations=list(status.get("limitations", [])),
     )
 
 
@@ -186,6 +250,37 @@ def latest_observation(
     return _observation_detail(observation, camera_code, station_code)
 
 
+@router.get(
+    "/observations/detail",
+    response_model=ShorelineObservationDetail,
+    summary="One shoreline observation by camera and timestamp",
+)
+def observation_detail(
+    camera_id: int,
+    observed_at: datetime,
+    db: Session = Depends(get_db),
+) -> ShorelineObservationDetail:
+    row = db.execute(
+        select(ShorelineObservation, Camera.code, MonitoringStation.code)
+        .join(Camera, Camera.id == ShorelineObservation.camera_id)
+        .join(
+            MonitoringStation,
+            MonitoringStation.id == ShorelineObservation.monitoring_station_id,
+        )
+        .where(
+            ShorelineObservation.camera_id == camera_id,
+            ShorelineObservation.observed_at == observed_at,
+        )
+        .limit(1)
+    ).first()
+    if row is None:
+        raise NotFoundError(
+            f"Shoreline observation not found for camera {camera_id} at {observed_at}"
+        )
+    observation, camera_code, station_code = row
+    return _observation_detail(observation, camera_code, station_code)
+
+
 @router.post(
     "/observations",
     response_model=ShorelineObservationDetail,
@@ -231,6 +326,16 @@ async def create_observation_from_mask(
             raise ValidationError(
                 "observed_at must be ISO 8601 (e.g. 2026-11-19T06:30:00+00:00)"
             ) from exc
+    if parsed_observed_at is None:
+        raise ValidationError(
+            "operator-labelled masks require an explicit observed_at; processing "
+            "time is not used as a capture time",
+            details={"reason": "observed_at_required"},
+        )
+    if parsed_observed_at.tzinfo is None:
+        raise ValidationError(
+            "observed_at must include a UTC offset (e.g. 2026-11-19T06:30:00+00:00)"
+        )
 
     calibration = None
     if camera.active_calibration_id:
@@ -251,16 +356,21 @@ async def create_observation_from_mask(
         # seaward_axis is only meaningful with a calibrated camera; surface that.
         result.calibrated_position_m = None
 
-    observation = record_observation(
-        db,
-        camera,
-        observed_at=parsed_observed_at or datetime.now(UTC),
-        result=result,
-        calibration_id=camera.active_calibration_id,
-        quality_score=None,
-        quality_flags=[],
-        source_frame_path=None,
-    )
+    try:
+        observation = record_observation(
+            db,
+            camera,
+            observed_at=parsed_observed_at,
+            result=result,
+            calibration_id=camera.active_calibration_id,
+            quality_score=None,
+            quality_flags=[],
+            source_frame_path=None,
+            timestamp_source="supplied",
+            timestamp_confidence=1.0,
+        )
+    except ValueError as exc:
+        raise ValidationError(str(exc), details={"reason": "out_of_order"}) from exc
     try:
         db.commit()
     except Exception as exc:
@@ -326,14 +436,94 @@ def list_calibrations(db: Session = Depends(get_db)) -> list[ShorelineCalibratio
 
 @router.get(
     "/baselines",
-    summary="Baselines land in Phase 5 (not implemented)",
-    status_code=status.HTTP_501_NOT_IMPLEMENTED,
+    response_model=ShorelineBaselineStatus,
+    summary="Provisional tide-conditioned baselines (explicit unavailable state)",
 )
-def baselines_not_implemented() -> Any:
-    return {
-        "error": {
-            "code": "not_implemented",
-            "message": "Tide-aware shoreline baselines are implemented in Phase 5.",
-            "details": {"phase": 5},
-        }
-    }
+def list_baselines(
+    db: Session = Depends(get_db),
+    camera_id: int | None = None,
+    station_id: int | None = None,
+) -> ShorelineBaselineStatus:
+    stmt = select(ShorelineBaseline).order_by(ShorelineBaseline.created_at.desc())
+    if camera_id is not None:
+        stmt = stmt.where(ShorelineBaseline.camera_id == camera_id)
+    if station_id is not None:
+        stmt = stmt.where(ShorelineBaseline.monitoring_station_id == station_id)
+    rows = list(db.scalars(stmt.limit(50)).all())
+    if not rows:
+        return ShorelineBaselineStatus(
+            available=False,
+            status="unavailable",
+            detector_mode="rolling_baseline",
+            reason=(
+                "No baseline has been fitted for this selection. A tide-conditioned "
+                "baseline requires verified, geographically appropriate tide data and "
+                "a documented minimum of paired observations. No rolling-median "
+                "baseline has been computed yet either."
+            ),
+            baselines=[],
+        )
+    latest = rows[0]
+    tide_available = any(
+        bool(row.is_active) and (row.status or "") in {"provisional", "available"} for row in rows
+    )
+    rolling = next((row for row in rows if row.detector_mode == "rolling_baseline"), None)
+    if tide_available:
+        status = latest.status or "provisional"
+        detector_mode = latest.detector_mode or "tide_conditioned"
+        parameters = latest.model_params
+        reason = latest.reason
+    elif rolling is not None:
+        status = "rolling_unverified"
+        detector_mode = "rolling_baseline"
+        parameters = (
+            rolling.model_params.get("config")
+            if isinstance(rolling.model_params, dict)
+            else rolling.model_params
+        )
+        reason = rolling.reason or (
+            "No verified tide-conditioned baseline is active. The rolling median is "
+            "tide-independent and cannot establish an absolute expected shoreline "
+            "or a NORMAL state."
+        )
+    else:
+        status = latest.status or "unavailable"
+        detector_mode = latest.detector_mode or "unavailable"
+        parameters = latest.model_params
+        reason = latest.reason
+
+    return ShorelineBaselineStatus(
+        available=tide_available,
+        status=status,
+        reason=reason,
+        detector_mode=detector_mode,
+        parameters=parameters if isinstance(parameters, dict) else None,
+        baselines=[
+            ShorelineBaselineRead(
+                id=row.id,
+                monitoring_station_id=row.monitoring_station_id,
+                camera_id=row.camera_id,
+                tide_station_id=row.tide_station_id,
+                recording_id=row.recording_id,
+                name=row.name,
+                model_type=row.model_type,
+                status=row.status,
+                provisional=row.provisional,
+                reason=row.reason,
+                sample_count=row.sample_count,
+                is_active=row.is_active,
+                position_axis=row.position_axis,
+                position_sign=row.position_sign,
+                position_unit=row.position_unit,
+                detector_mode=row.detector_mode,
+                r_squared=row.r_squared,
+                model_params=row.model_params,
+                prediction_interval=row.prediction_interval,
+                valid_from=row.valid_from,
+                valid_to=row.valid_to,
+                notes=row.notes,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ],
+    )

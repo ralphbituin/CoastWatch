@@ -37,9 +37,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         __version__,
         settings.environment,
     )
-    yield
-    logger.info("shutdown")
-    dispose_engine()
+    from app.services.lab.registry import get_lab_registry
+    from app.services.live.capture import get_live_manager
+
+    get_lab_registry().cleanup_expired()
+    live_manager = get_live_manager()
+    live_manager.start()
+    try:
+        yield
+    finally:
+        live_manager.stop()
+        logger.info("shutdown")
+        dispose_engine()
 
 
 def create_app() -> FastAPI:
@@ -67,7 +76,35 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["X-Request-ID"],
+        expose_headers=[
+            "X-Request-ID",
+            "Server-Timing",
+            # Camera frame metadata (/cameras/{id}/frame).
+            "X-Camera-Code",
+            "X-Frame-Sequence",
+            "X-Frame-Captured-At",
+            "X-Quality-Score",
+            "X-Quality-Flags",
+            # Live segmentation preview (/cameras/{id}/shoreline-preview).
+            "X-Segmentation-Confidence",
+            "X-Inference-Ms",
+            "X-Frame-Width",
+            "X-Frame-Height",
+            "X-Model-Architecture",
+            "X-Model-Encoder",
+            "X-Model-Checkpoint-Sha256",
+            "X-Shoreline-Available",
+            "X-Shoreline-Segments",
+            "X-Shoreline-Axis",
+            "X-Shoreline-Interpolated-Ranges",
+            "X-Shoreline-Measured-Coverage",
+            "X-Shoreline-Reason",
+            "X-Shoreline-Polyline",
+            "X-Preview-Source",
+            "X-Preview-Age-Ms",
+            "X-Preview-Cache-Age-Ms",
+            "X-Preview-Observation-Id",
+        ],
     )
 
     register_exception_handlers(app)

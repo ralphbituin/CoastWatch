@@ -34,6 +34,23 @@ def test_unknown_route_uses_error_envelope(client: TestClient) -> None:
     assert response.json()["error"]["code"] == "http_error"
 
 
+def test_phase5_phase6_routes_registered() -> None:
+    """Anomalies/baselines/videos are implemented; do not regress to 501 stubs."""
+    from app.main import app
+
+    paths = {route.path for route in app.routes}
+    for expected in (
+        f"{API}/anomalies",
+        f"{API}/anomalies/{{event_id}}",
+        f"{API}/anomalies/current",
+        f"{API}/shorelines/baselines",
+        f"{API}/videos",
+        f"{API}/videos/process",
+        f"{API}/videos/{{recording_id}}/observations",
+    ):
+        assert expected in paths, expected
+
+
 def test_openapi_schema_includes_tide_routes(client: TestClient) -> None:
     response = client.get("/openapi.json")
     assert response.status_code == 200
@@ -49,6 +66,7 @@ def test_openapi_schema_includes_tide_routes(client: TestClient) -> None:
         "/api/v1/cameras/{camera_id}/frame",
         "/api/v1/cameras/{camera_id}/upload-video",
         "/api/v1/cameras/{camera_id}/calibrations",
+        "/api/v1/cameras/{camera_id}/calibrations/{calibration_id}/roi",
         "/api/v1/shorelines",
         "/api/v1/shorelines/observations",
         "/api/v1/shorelines/observations/latest",
