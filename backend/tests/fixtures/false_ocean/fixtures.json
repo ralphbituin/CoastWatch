@@ -1,0 +1,114 @@
+{
+  "karon_rock": {
+    "source": "sam3_fcbf283f-07c9-4b76-8b2a-bf2d393bc00d.jpg",
+    "false_bbox": [
+      160,
+      248,
+      175,
+      39
+    ],
+    "before_segments": 5,
+    "after_segments": 1,
+    "before_valid": 423,
+    "after_valid": 360,
+    "branches_rejected_depth": 0
+  },
+  "karon_shadow": {
+    "source": "sam3_16c0c06e-3d44-4ddb-b69b-21743555d30d.jpg",
+    "false_bbox": [
+      505,
+      138,
+      50,
+      45
+    ],
+    "before_segments": 3,
+    "after_segments": 1,
+    "before_valid": 523,
+    "after_valid": 270,
+    "branches_rejected_depth": 0
+  },
+  "karon_reflection": {
+    "source": "sam3_755f882e-5941-4413-b329-93e92302084c.jpg",
+    "false_bbox": [
+      425,
+      214,
+      85,
+      23
+    ],
+    "before_segments": 3,
+    "after_segments": 1,
+    "before_valid": 508,
+    "after_valid": 118,
+    "branches_rejected_depth": 0
+  },
+  "koh_samui_deck_a": {
+    "source": "site_thailand_koh_samui_2026-11-24_23-17-51.png",
+    "false_bbox": [
+      415,
+      9,
+      225,
+      351
+    ],
+    "before_segments": 3,
+    "after_segments": 1,
+    "before_valid": 259,
+    "after_valid": 259,
+    "branches_rejected_depth": 0
+  },
+  "koh_samui_deck_b": {
+    "source": "site_thailand_koh_samui_2026-11-25_05-17-51.png",
+    "false_bbox": [
+      420,
+      20,
+      220,
+      340
+    ],
+    "before_segments": 6,
+    "after_segments": 1,
+    "before_valid": 231,
+    "after_valid": 262,
+    "branches_rejected_depth": 0
+  },
+  "el_gaucho_chairs": {
+    "source": "site_thailand_koh_samui_el_gaucho_2026-11-25_06-23-34.png",
+    "false_bbox": [
+      545,
+      287,
+      95,
+      73
+    ],
+    "before_segments": 6,
+    "after_segments": 1,
+    "before_valid": 636,
+    "after_valid": 636,
+    "branches_rejected_depth": 0
+  },
+  "koh_samui_diagonal_backshore": {
+    "source": "reference_frame_2_inpainted.png",
+    "false_bbox": [
+      431,
+      112,
+      21,
+      17
+    ],
+    "before_segments": 3,
+    "after_segments": 1,
+    "before_valid": 454,
+    "after_valid": 206,
+    "branches_rejected_depth": 0
+  },
+  "live_daytime_deck": {
+    "source": "live/live_20261127_071708_2.jpg",
+    "false_bbox": [
+      330,
+      40,
+      310,
+      320
+    ],
+    "before_segments": 8,
+    "after_segments": 1,
+    "before_valid": 412,
+    "after_valid": 264,
+    "branches_rejected_depth": 0
+  }
+}
