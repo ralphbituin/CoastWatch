@@ -1,16 +1,16 @@
-# CoastWatch backend — optional ML / segmentation extras.
-# These are NOT installed in the Phase 1 CI job; they are installed on the
-# GPU development and edge (Jetson Orin Nano, Phase 9) environments.
+# CoastWatch backend — optional ML training / offline export extras.
+# These are NOT installed in the production image or the Phase 1 CI job.
+# The production runtime file is requirements-runtime.txt (core + CPU onnxruntime).
 #
 # Install with:  pip install -r requirements-ml.txt
 #
-# Active inference (SegFormer MiT-B2 ONNX) needs ONLY onnxruntime. PyTorch,
+# Active inference (SegFormer MiT-B2 ONNX) is CPU-only. PyTorch,
 # torchvision, segmentation-models-pytorch and albumentations are retained for
 # the legacy training pipeline and for offline export/verification; they are
 # not imported by the API at runtime.
 -r requirements.txt
 
-# Active inference runtime (FP32 CUDA when usable, CPU fallback).
+# Active inference runtime (CPU only).
 onnxruntime==1.20.1
 
 # Legacy training / offline export only.

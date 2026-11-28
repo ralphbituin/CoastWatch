@@ -191,14 +191,33 @@ def _bilinear_align_corners_false(chw: np.ndarray, out_h: int, out_w: int) -> np
     )
 
 
-def _is_oom(exc: Exception) -> bool:
-    text = f"{type(exc).__name__}: {exc}".lower()
-    return "out of memory" in text or "cuda_error_out_of_memory" in text
+CPU_EXECUTION_PROVIDER = "CPUExecutionProvider"
+CPU_PROVIDERS: tuple[str, ...] = (CPU_EXECUTION_PROVIDER,)
+
+# ONNX Runtime is CPU-only in this deployment. A process-wide semaphore caps
+# concurrent runs so multiple camera workers cannot oversubscribe the cores.
+_inference_gate_lock = threading.Lock()
+_inference_gate: threading.BoundedSemaphore | None = None
+_inference_gate_limit: int | None = None
+
+
+def _inference_gate_for(limit: int) -> threading.BoundedSemaphore:
+    global _inference_gate, _inference_gate_limit
+    configured = max(1, int(limit))
+    with _inference_gate_lock:
+        if _inference_gate is None or _inference_gate_limit != configured:
+            _inference_gate = threading.BoundedSemaphore(configured)
+            _inference_gate_limit = configured
+        return _inference_gate
+
+
+def _max_concurrent_inferences() -> int:
+    return max(1, int(getattr(get_settings(), "onnx_max_concurrent_inferences", 1) or 1))
 
 
 @lru_cache(maxsize=8)
-def _load_session(artifact_str: str, providers: tuple[str, ...], intra_op_threads: int) -> Any:
-    """Create and cache an ONNX Runtime session (one per artifact/providers)."""
+def _load_session(artifact_str: str, intra_op_threads: int) -> Any:
+    """Create and cache the CPU-only ONNX Runtime session (one per artifact)."""
     try:
         import onnxruntime as ort
     except ImportError as exc:  # pragma: no cover - depends on deployment image
@@ -207,10 +226,6 @@ def _load_session(artifact_str: str, providers: tuple[str, ...], intra_op_thread
             "Install backend/requirements-ml.txt."
         ) from exc
 
-    available = set(ort.get_available_providers())
-    usable = [name for name in providers if name in available]
-    if "CPUExecutionProvider" not in usable:
-        usable.append("CPUExecutionProvider")
     options = ort.SessionOptions()
     options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     # One inference at a time per process: one inter-op thread and sequential
@@ -221,21 +236,16 @@ def _load_session(artifact_str: str, providers: tuple[str, ...], intra_op_thread
     if intra_op_threads > 0:
         options.intra_op_num_threads = intra_op_threads
     try:
-        session = ort.InferenceSession(artifact_str, sess_options=options, providers=usable)
+        session = ort.InferenceSession(
+            artifact_str, sess_options=options, providers=list(CPU_PROVIDERS)
+        )
     except Exception as exc:  # pragma: no cover - corrupt artifact
         raise ModelUnavailableError(f"Failed to load {artifact_str}: {exc}") from exc
-    active = session.get_providers()
-    if "CUDAExecutionProvider" in usable and "CUDAExecutionProvider" not in active:
-        logger.warning(
-            "CUDA execution provider was requested but ONNX Runtime activated %s; "
-            "check the CUDA/cuDNN runtime. Inference continues in FP32 on the active provider.",
-            active,
-        )
     logger.info(
         "loaded SegFormer segmentation model %s with providers %s "
         "(intra_op_threads=%s, inter_op_threads=1, sequential, mem_arena=True)",
         artifact_str,
-        active,
+        session.get_providers(),
         options.intra_op_num_threads,
     )
     return session
@@ -248,19 +258,12 @@ class ShorelineSegmenter:
         self,
         model_path: str | Path | None = None,
         *,
-        device: str = "cpu",
         input_size: tuple[int, int] | None = None,
-        providers: list[str] | None = None,
         overlay_alpha: float = 0.45,
-        allow_cpu_oom_fallback: bool | None = None,
     ) -> None:
         self.model_path = Path(model_path) if model_path is not None else None
-        self.device = device
         self._input_size_override = input_size
-        self._providers_override = providers
         self.overlay_alpha = overlay_alpha
-        # None means "use config.runtime.allow_cpu_oom_fallback" once loaded.
-        self.allow_cpu_oom_fallback = allow_cpu_oom_fallback
         self._session: Any | None = None
         self._config: dict[str, Any] | None = None
         self._input_name = ""
@@ -286,18 +289,10 @@ class ShorelineSegmenter:
                     "POST /api/v1/shorelines/observations."
                 )
             config = load_model_config(artifact)
-            if self.allow_cpu_oom_fallback is None:
-                self.allow_cpu_oom_fallback = bool(
-                    config.get("runtime", {}).get("allow_cpu_oom_fallback", True)
-                )
-            providers = tuple(
-                self._providers_override
-                or config.get("providers", ["CUDAExecutionProvider", "CPUExecutionProvider"])
-            )
             configured_threads = int(getattr(get_settings(), "onnx_intra_op_threads", 0) or 0)
             if configured_threads <= 0:
                 configured_threads = int(config.get("intra_op_threads", 0) or 0)
-            session = _load_session(str(artifact), providers, configured_threads)
+            session = _load_session(str(artifact), configured_threads)
 
             self._config = config
             self._session = session
@@ -356,9 +351,11 @@ class ShorelineSegmenter:
         scaled = (scaled - mean) / std
         batch = np.transpose(scaled, (2, 0, 1))[np.newaxis, ...]
 
-        started = time.perf_counter()
-        outputs, providers_used = self._run(batch)
-        inference_ms = (time.perf_counter() - started) * 1000.0
+        gate = _inference_gate_for(_max_concurrent_inferences())
+        with gate:
+            started = time.perf_counter()
+            outputs, providers_used = self._run(batch)
+            inference_ms = (time.perf_counter() - started) * 1000.0
 
         logits = np.asarray(outputs[0])
         if logits.ndim != 4:
@@ -418,26 +415,13 @@ class ShorelineSegmenter:
         )
 
     def _run(self, batch: np.ndarray) -> tuple[list[Any], tuple[str, ...]]:
-        """Run the session, retrying once on CPU after a CUDA OOM if allowed."""
+        """Run the CPU session once; any failure is surfaced, never faked."""
         assert self._session is not None
         try:
             outputs = self._session.run([self._output_name], {self._input_name: batch})
-            return outputs, tuple(self._session.get_providers())
         except Exception as exc:
-            if bool(self.allow_cpu_oom_fallback) and _is_oom(exc):
-                logger.warning("CUDA OOM during segmentation; retrying once on CPU: %s", exc)
-                artifact = find_model_artifact(self.model_path)
-                if artifact is None:  # pragma: no cover - loaded session implies artifact
-                    raise ModelUnavailableError(str(exc)) from exc
-                cpu_session = _load_session(str(artifact), ("CPUExecutionProvider",), 0)
-                try:
-                    outputs = cpu_session.run([self._output_name], {self._input_name: batch})
-                except Exception as cpu_exc:  # pragma: no cover - defensive
-                    raise ModelUnavailableError(
-                        f"segmentation inference failed on CUDA and CPU: {cpu_exc}"
-                    ) from cpu_exc
-                return outputs, ("CPUExecutionProvider",)
             raise ModelUnavailableError(f"segmentation inference failed: {exc}") from exc
+        return outputs, tuple(self._session.get_providers())
 
     @staticmethod
     def _to_rgb(frame: Any) -> np.ndarray:

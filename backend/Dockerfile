@@ -1,5 +1,5 @@
 # CoastWatch backend image (Phase 1).
-# ML/GPU extras are layered separately for edge deployments (Phase 9).
+# CPU-only inference (SegFormer MiT-B2 ONNX); no CUDA/cuDNN is required.
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -17,8 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt requirements-ml.txt ./
-RUN pip install --upgrade pip && pip install -r requirements-ml.txt
+COPY requirements.txt requirements-runtime.txt ./
+RUN pip install --upgrade pip && pip install -r requirements-runtime.txt
 
 COPY . .
 

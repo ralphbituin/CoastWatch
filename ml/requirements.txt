@@ -1,11 +1,10 @@
 # CoastWatch beach segmentation — training environment
-# Python 3.11. Install PyTorch first from the CUDA wheel index on GPU machines:
-#   pip install torch==2.5.1 torchvision==0.20.1 \
-#       --index-url https://download.pytorch.org/whl/cu124
-# then:
+# Python 3.11. Install the CPU PyTorch wheels, then the rest:
+#   pip install torch==2.5.1 torchvision==0.20.1
 #   pip install -r ml/requirements.txt
 #
-# CPU-only fallback: use the default PyPI torch wheels instead of the CUDA index.
+# A GPU is not required. The deployed backend is CPU-only; training also runs
+# on CPU with the trainer disabling AMP automatically.
 
 torch==2.5.1
 torchvision==0.20.1

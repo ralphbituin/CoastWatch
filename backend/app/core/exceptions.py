@@ -81,11 +81,11 @@ class DatabaseUnavailableError(CoastWatchError):
     code = "database_unavailable"
 
 
-class PreviewBusyError(CoastWatchError):
-    """Another on-demand preview inference is already running for this camera."""
+class PreviewNotReadyError(CoastWatchError):
+    """The live worker has not produced a frame for the preview cache yet."""
 
-    status_code = status.HTTP_429_TOO_MANY_REQUESTS
-    code = "preview_busy"
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    code = "preview_not_ready"
 
 
 def _envelope(code: str, message: str, details: dict[str, Any] | None = None) -> dict[str, Any]:

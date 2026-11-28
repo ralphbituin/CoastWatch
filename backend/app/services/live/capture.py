@@ -92,6 +92,9 @@ class LiveStatus:
     last_event_at: datetime | None = None
     sample_interval_seconds: float = 30.0
     is_live: bool | None = None
+    # Slots dropped because a sample overran the interval (no catch-up bursts).
+    samples_skipped: int = 0
+    last_sample_duration_ms: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -114,6 +117,8 @@ class LiveStatus:
                 None if self.last_event_at is None else self.last_event_at.isoformat()
             ),
             "sample_interval_seconds": self.sample_interval_seconds,
+            "samples_skipped": self.samples_skipped,
+            "last_sample_duration_ms": self.last_sample_duration_ms,
             "is_live": self.is_live,
         }
 
@@ -153,6 +158,9 @@ class LiveCaptureWorker:
         self._thread: threading.Thread | None = None
         self._status = LiveStatus(camera_id=camera_id, sample_interval_seconds=self._interval)
         self._lock = threading.Lock()
+        # One segmentation session per worker, loaded once at start.
+        self._segmenter: Any | None = None
+        self._overruns = 0
 
     # ------------------------------------------------------------------
     # Public lifecycle
@@ -196,16 +204,37 @@ class LiveCaptureWorker:
             provider, context = self._initialise()
             self._set_status(state=STREAM_RUNNING)
             next_tick = time.monotonic()
+            # Small scheduling jitter is not a missed slot; an overrun by more
+            # than this tolerance is.
+            late_tolerance = min(0.05, self._interval * 0.05)
             while not self._stop.is_set():
                 now = time.monotonic()
                 if now < next_tick:
                     self._stop.wait(next_tick - now)
                     continue
-                overdue = now - next_tick
-                if overdue > self._interval:
-                    # Backpressure: drop missed slots instead of queueing.
-                    next_tick = now
+                lateness = now - next_tick
+                if lateness > late_tolerance:
+                    # A sample overran. Skip every slot up to and including the
+                    # due one, then wait for the next slot on the original grid.
+                    missed = self._missed_slots(lateness, self._interval)
+                    next_tick += missed * self._interval
+                    self._add_skipped(missed)
+                    continue
+                started = time.perf_counter()
                 self._sample_once(context)
+                duration_ms = (time.perf_counter() - started) * 1000.0
+                self._set_status(last_sample_duration_ms=round(duration_ms, 3))
+                if duration_ms > self._interval * 1000.0:
+                    self._overruns += 1
+                    if self._overruns == 1 or self._overruns % 5 == 0:
+                        logger.warning(
+                            "live capture %s: sample took %.0f ms (> %.0f ms interval); "
+                            "skipping missed slots (%s overruns)",
+                            self.camera_id,
+                            duration_ms,
+                            self._interval * 1000.0,
+                            self._overruns,
+                        )
                 next_tick += self._interval
         except Exception as exc:  # pragma: no cover - startup/defensive
             logger.exception("live capture worker %s failed", self.camera_id)
@@ -270,7 +299,6 @@ class LiveCaptureWorker:
             roi_polygon = load_active_roi(session, camera)
             # Never serve a previous session's cached frame after a restart.
             get_preview_cache().clear(camera.id)
-            provider = self._provider_factory(camera)
             self._set_status(
                 state=STREAM_STARTING,
                 session_id=session_id,
@@ -278,6 +306,14 @@ class LiveCaptureWorker:
                 started_at=row.started_at,
                 is_live=(camera.camera_type == "youtube_live"),
             )
+            # Build and load the CPU inference session once per worker. Model
+            # initialization must not be charged to the first sample.
+            segmenter = self._segmenter_factory()
+            load = getattr(segmenter, "load", None)
+            if callable(load):
+                load()
+            self._segmenter = segmenter
+            provider = self._provider_factory(camera)
             provider.connect()
             logger.info(
                 "live capture %s started session=%s warm_start_rows=%s "
@@ -296,6 +332,28 @@ class LiveCaptureWorker:
                 roi_polygon=roi_polygon,
             )
 
+    def _segmenter_instance(self) -> Any:
+        """Return the worker's single segmenter (created on first use)."""
+        segmenter = self._segmenter
+        if segmenter is None:
+            segmenter = self._segmenter_factory()
+            load = getattr(segmenter, "load", None)
+            if callable(load):
+                load()
+            self._segmenter = segmenter
+        return segmenter
+
+    def _add_skipped(self, count: int) -> None:
+        with self._lock:
+            self._status.samples_skipped += max(0, int(count))
+
+    @staticmethod
+    def _missed_slots(lateness_seconds: float, interval_seconds: float) -> int:
+        """Slots to skip when a sample ends ``lateness`` past the due slot."""
+        if lateness_seconds <= 0 or interval_seconds <= 0:
+            return 0
+        return int(lateness_seconds // interval_seconds) + 1
+
     def _sample_once(self, context: _WorkerContext) -> None:
         if self._stop.is_set():
             return
@@ -308,7 +366,7 @@ class LiveCaptureWorker:
         received = time.perf_counter()
         self._set_status(last_frame_at=frame.captured_at)
 
-        segmenter = self._segmenter_factory()
+        segmenter = self._segmenter_instance()
         result = None
         position = None
         segmentation: Any = None
@@ -371,12 +429,33 @@ class LiveCaptureWorker:
         with context.lock:
             context.frame_counter += 1
             frame_index = context.frame_counter
+        ingest_latency_ms = round((time.perf_counter() - received) * 1000.0, 3)
+
+        # Publish the sampled frame immediately, before persistence/rolling work.
+        # The preview endpoint is cache-only; a slow DB commit must not delay it.
+        cached_entry: PreviewCacheEntry | None = None
+        if segmentation is not None:
+            cached_entry = PreviewCacheEntry(
+                camera_id=self.camera_id,
+                frame=frame,
+                segmentation=segmentation,
+                shoreline=result,
+                captured_at=frame.captured_at,
+                observation_id=None,
+                recording_id=context.status.recording_id,
+                frame_index=frame_index,
+                inference_ms=inference_ms,
+                ingest_latency_ms=ingest_latency_ms,
+                stored_monotonic=time.monotonic(),
+                monitoring_outline_present=context.roi_polygon is not None,
+                persisted=False,
+            )
+            get_preview_cache().put(cached_entry)
 
         with self._session_factory() as session:
             camera = session.get(Camera, self.camera_id)
             if camera is None:
                 return
-            ingest_latency_ms = round((time.perf_counter() - received) * 1000.0, 3)
             outcome = write_observation(
                 session,
                 camera,
@@ -432,25 +511,14 @@ class LiveCaptureWorker:
                 return
             self._increment_persisted()
             self._set_status(last_frame_at=frame.captured_at)
-            if segmentation is not None:
-                get_preview_cache().put(
-                    PreviewCacheEntry(
-                        camera_id=self.camera_id,
-                        frame=frame,
-                        segmentation=segmentation,
-                        shoreline=result,
-                        captured_at=frame.captured_at,
-                        observation_id=(
-                            f"{context.status.recording_id or self.camera_id}:{frame_index}"
-                        ),
-                        recording_id=context.status.recording_id,
-                        frame_index=frame_index,
-                        inference_ms=inference_ms,
-                        ingest_latency_ms=ingest_latency_ms,
-                        stored_monotonic=time.monotonic(),
-                        monitoring_outline_present=context.roi_polygon is not None,
-                    )
+            # The frame was already served as persisted=False; now record that
+            # the observation exists without re-encoding or re-inferring.
+            if cached_entry is not None:
+                cached_entry.observation_id = (
+                    f"{context.status.recording_id or self.camera_id}:{frame_index}"
                 )
+                cached_entry.persisted = True
+                get_preview_cache().put(cached_entry)
 
             # Advance the stateful detector only after the row is stored.
             if outcome.observation is None:  # pragma: no cover - persisted rows carry one

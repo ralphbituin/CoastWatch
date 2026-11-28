@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,7 +21,7 @@ from app.core.exceptions import (
     ConflictError,
     DataUnavailableError,
     NotFoundError,
-    PreviewBusyError,
+    PreviewNotReadyError,
     ValidationError,
 )
 from app.core.logging import get_logger
@@ -55,11 +54,6 @@ from app.services.live.capture import get_live_manager
 from app.services.live.preview_cache import get_preview_cache
 from app.services.vision.preprocessing import FrameQuality
 from app.services.vision.roi import load_active_roi
-from app.services.vision.segmentation import InvalidFrameError, ShorelineSegmenter
-from app.services.vision.shoreline import (
-    ShorelineExtractionError,
-    extract_shoreline_from_classes,
-)
 
 logger = get_logger(__name__)
 
@@ -75,10 +69,6 @@ DEFAULT_CLASS_COLOR_MAP = {
     "Ocean": [32, 112, 190],
     "Sky": [135, 206, 235],
 }
-
-# Only one on-demand preview inference runs at a time; requests that arrive
-# while it is busy get an immediate 429 (or a cached frame) rather than queueing.
-_preview_inference_slot = threading.Lock()
 
 
 def _get_camera(db: Session, camera_id: int) -> Camera:
@@ -478,13 +468,17 @@ def get_camera_shoreline_preview(
     mask: bool = False,
     db: Session = Depends(get_db),
 ) -> Response:
-    """Capture one frame, run the real model and return the preview JPEG.
+    """Serve the live worker's most recent sampled frame.
+
+    This endpoint is **cache-only**: it never captures a frame and never runs the
+    model. The live capture worker samples one frame per configured interval and
+    publishes the already-scored frame/mask/shoreline here, so preview latency is
+    JPEG encode + network only.
 
     ``mask=false`` (default) returns the raw frame and exposes the extracted
-    Ocean/Beach line in ``X-Shoreline-Polyline`` for the browser to draw. This
-    avoids the server-side tint and line compositing on every poll.
-    ``mask=true`` keeps the legacy server-rendered tint+line image. This endpoint
-    is intentionally read-only: it does not persist an observation.
+    Ocean/Beach line in ``X-Shoreline-Polyline`` for the browser to draw.
+    ``mask=true`` keeps the server-rendered tint+line image. This endpoint is
+    intentionally read-only: it does not persist an observation.
     """
     handler_started = time.perf_counter()
     camera = _get_camera(db, camera_id)
@@ -493,108 +487,48 @@ def get_camera_shoreline_preview(
     settings = get_settings()
     outline = load_active_roi(db, camera)
     outline_present = outline is not None
-
-    # 1. Serve the live worker's already-scored frame when it is fresh. This
-    #    avoids a second ONNX run and a second extraction per dashboard poll.
-    capture_started = time.perf_counter()
-    entry = get_preview_cache().get(
-        camera.id, max_age_seconds=settings.preview_cache_max_age_seconds
+    interval = float(settings.live_capture_interval_seconds)
+    effective_max_age = max(
+        float(settings.preview_cache_max_age_seconds), interval * 2.5
     )
-    if entry is not None and entry.monitoring_outline_present == outline_present:
-        frame = entry.frame
-        segmentation = entry.segmentation
-        shoreline = entry.shoreline
-        color_map = DEFAULT_CLASS_COLOR_MAP
-        capture_ms = (time.perf_counter() - capture_started) * 1000.0
-        capture_age_ms = entry.captured_age_ms
-        predict_ms = 0.0
-        onnx_ms = float(entry.inference_ms or 0.0)
-        extract_ms = 0.0
-        preview_source = "cache"
-        cache_age_ms = entry.age_ms()
-        observation_id = entry.observation_id
-    else:
-        # 2. On-demand inference, single-flight: overlapping requests do not
-        #    queue behind a running inference.
-        if not _preview_inference_slot.acquire(blocking=False):
-            latest = get_preview_cache().get(camera.id, max_age_seconds=3600.0)
-            if latest is not None:
-                return _render_preview(
-                    latest.frame,
-                    latest.segmentation,
-                    latest.shoreline,
-                    mask=mask,
-                    color_map=DEFAULT_CLASS_COLOR_MAP,
-                    source="cache",
-                    cache_age_ms=latest.age_ms(),
-                    capture_ms=(time.perf_counter() - capture_started) * 1000.0,
-                    capture_age_ms=latest.captured_age_ms,
-                    predict_ms=0.0,
-                    onnx_ms=float(latest.inference_ms or 0.0),
-                    extract_ms=0.0,
-                    observation_id=latest.observation_id,
-                    outline_present=latest.monitoring_outline_present,
-                    handler_started=handler_started,
-                )
-            raise PreviewBusyError(
-                "A shoreline preview is already being computed; retry shortly",
-                details={"camera_id": camera.id, "reason": "preview_busy"},
-                headers={"Retry-After": str(settings.preview_single_flight_retry_after_seconds)},
-            )
-        try:
-            try:
-                frame, _quality = manager.capture_frame(camera)
-            except (FrameUnavailableError, CameraError) as exc:
-                raise DataUnavailableError(str(exc), details={"camera_id": camera.id}) from exc
-            capture_ms = (time.perf_counter() - capture_started) * 1000.0
-            capture_age_ms = (datetime.now(UTC) - frame.captured_at).total_seconds() * 1000.0
 
-            segmenter = ShorelineSegmenter()
-            predict_started = time.perf_counter()
-            try:
-                segmentation = segmenter.predict(frame.image)
-            except InvalidFrameError as exc:
-                raise ValidationError(
-                    f"Camera frame could not be segmented: {exc}",
-                    details={"camera_id": camera.id, "reason": "invalid_frame"},
-                ) from exc
-            predict_ms = (time.perf_counter() - predict_started) * 1000.0
-            onnx_ms = float(segmentation.inference_ms or 0.0)
-            extract_started = time.perf_counter()
-            try:
-                shoreline = extract_shoreline_from_classes(
-                    segmentation.class_mask,
-                    confidence=segmentation.confidence,
-                    monitoring_polygon=outline,
-                )
-            except ShorelineExtractionError as exc:
-                raise DataUnavailableError(
-                    f"The model produced a mask but no usable Ocean/Beach shoreline: {exc}",
-                    details={"camera_id": camera.id, "reason": "shoreline_extraction_failed"},
-                ) from exc
-            extract_ms = (time.perf_counter() - extract_started) * 1000.0
-            color_map = segmenter.config.get("color_map", DEFAULT_CLASS_COLOR_MAP)
-        finally:
-            _preview_inference_slot.release()
-        preview_source = "on-demand"
-        cache_age_ms = None
-        observation_id = None
+    cache_started = time.perf_counter()
+    entry = get_preview_cache().get(camera.id, max_age_seconds=effective_max_age)
+    stale = False
+    if entry is None:
+        # A stopped/failed worker may still have its last frame. Serve it with a
+        # stale marker; a running worker that has produced nothing gets a 503.
+        # A cache miss never triggers capture or inference.
+        last = get_preview_cache().get(camera.id, max_age_seconds=24 * 3600.0)
+        if last is not None and camera.id not in get_live_manager().running_camera_ids():
+            entry = last
+            stale = True
+    if entry is None:
+        raise PreviewNotReadyError(
+            "The live worker has not produced a frame yet",
+            details={"camera_id": camera.id, "reason": "preview_not_ready"},
+            headers={"Retry-After": str(max(1, min(int(interval), 5)))},
+        )
 
     return _render_preview(
-        frame,
-        segmentation,
-        shoreline,
+        entry.frame,
+        entry.segmentation,
+        entry.shoreline,
         mask=mask,
-        color_map=color_map,
-        source=preview_source,
-        cache_age_ms=cache_age_ms,
-        capture_ms=capture_ms,
-        capture_age_ms=capture_age_ms,
-        predict_ms=predict_ms,
-        onnx_ms=onnx_ms,
-        extract_ms=extract_ms,
-        observation_id=observation_id,
+        color_map=DEFAULT_CLASS_COLOR_MAP,
+        source="worker",
+        cache_age_ms=entry.age_ms(),
+        capture_ms=(time.perf_counter() - cache_started) * 1000.0,
+        capture_age_ms=entry.captured_age_ms,
+        predict_ms=0.0,
+        onnx_ms=float(entry.inference_ms or 0.0),
+        extract_ms=0.0,
+        observation_id=entry.observation_id,
         outline_present=outline_present,
+        outline_matches=(entry.monitoring_outline_present == outline_present),
+        stale=stale,
+        persisted=entry.persisted,
+        sample_interval_ms=interval * 1000.0,
         handler_started=handler_started,
     )
 
@@ -636,6 +570,10 @@ def _render_preview(
     extract_ms: float,
     observation_id: str | None,
     outline_present: bool,
+    outline_matches: bool = True,
+    stale: bool = False,
+    persisted: bool = True,
+    sample_interval_ms: float = 0.0,
     handler_started: float,
 ) -> Response:
     """Render the preview JPEG and attach the standard preview headers.
@@ -718,8 +656,15 @@ def _render_preview(
         "X-Shoreline-Reason": str(getattr(shoreline, "reason", None) or ""),
         "X-Shoreline-Polyline": polyline,
         "X-Monitoring-Outline": "1" if outline_present else "0",
+        "X-Monitoring-Outline-Matches": "1" if outline_matches else "0",
         "X-Preview-Source": source,
-        "X-Preview-Age-Ms": f"{response_age_ms:.1f}",
+        "X-Preview-Age-Ms": (
+            f"{(cache_age_ms if cache_age_ms is not None else response_age_ms):.1f}"
+        ),
+        "X-Preview-Captured-At": frame.captured_at.isoformat(),
+        "X-Preview-Sample-Interval-Ms": f"{sample_interval_ms:.0f}",
+        "X-Preview-Stale": "1" if stale else "0",
+        "X-Preview-Persisted": "1" if persisted else "0",
         "Server-Timing": server_timing,
         "Access-Control-Expose-Headers": (
             "X-Segmentation-Confidence, X-Inference-Ms, X-Frame-Captured-At, "
@@ -727,8 +672,10 @@ def _render_preview(
             "X-Model-Checkpoint-Sha256, X-Shoreline-Available, X-Shoreline-Segments, "
             "X-Shoreline-Axis, X-Shoreline-Interpolated-Ranges, "
             "X-Shoreline-Measured-Coverage, X-Shoreline-Reason, X-Shoreline-Polyline, "
-            "X-Monitoring-Outline, X-Preview-Source, X-Preview-Age-Ms, "
-            "X-Preview-Cache-Age-Ms, X-Preview-Observation-Id, Server-Timing"
+            "X-Monitoring-Outline, X-Monitoring-Outline-Matches, X-Preview-Source, "
+            "X-Preview-Age-Ms, X-Preview-Cache-Age-Ms, X-Preview-Observation-Id, "
+            "X-Preview-Captured-At, X-Preview-Sample-Interval-Ms, X-Preview-Stale, "
+            "X-Preview-Persisted, Server-Timing"
         ),
     }
     if cache_age_ms is not None:

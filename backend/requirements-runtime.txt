@@ -1,0 +1,11 @@
+# CoastWatch backend — production runtime dependencies.
+#
+# This is what the Docker image installs. It contains only what the API and
+# live capture worker import at runtime: the core backend plus the CPU ONNX
+# Runtime wheel. Training/export extras (torch, torchvision, transformers,
+# segmentation-models-pytorch, albumentations) stay in requirements-ml.txt and
+# are intentionally NOT part of the production image.
+-r requirements.txt
+
+# Active inference runtime (CPU only).
+onnxruntime==1.20.1

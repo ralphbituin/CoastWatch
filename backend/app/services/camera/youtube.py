@@ -20,6 +20,7 @@ import json
 import shutil
 import subprocess
 import threading
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -254,7 +255,16 @@ def resolve_youtube_stream(
 
 
 class YouTubeLiveProvider(CameraProvider):
-    """Reads frames from a resolved YouTube Live HLS/DASH URL."""
+    """Reads frames from a resolved YouTube Live HLS/DASH URL.
+
+    HLS keeps a segment buffer. Reading only one frame per sampling interval
+    from a persistent capture makes that backlog grow until the preview replays
+    minutes-old video. The provider therefore reconnects from the live edge
+    before a sample taken after an idle gap, while keeping the resolved stream
+    URL so yt-dlp is not invoked on every sample.
+    """
+
+    _REOPEN_AFTER_SECONDS = 2.0
 
     def __init__(
         self,
@@ -274,6 +284,8 @@ class YouTubeLiveProvider(CameraProvider):
         self._capture_factory = capture_factory
         self._cap: Any | None = None
         self._lock = threading.RLock()
+        self._stream_url: str | None = None
+        self._last_read_monotonic: float | None = None
         self._frames_captured = 0
         self._sequence = 0
         self._reconnect_count = 0
@@ -286,7 +298,7 @@ class YouTubeLiveProvider(CameraProvider):
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
-    def _open(self) -> None:
+    def _resolve_stream(self) -> str:
         info = resolve_youtube_stream(
             self._url,
             quality=self._quality,
@@ -296,41 +308,59 @@ class YouTubeLiveProvider(CameraProvider):
         stream_url = info.get("stream_url")
         if not stream_url:
             raise YouTubeError("resolved stream URL is empty")
+        self._resolved = info
+        self._stream_url = str(stream_url)
+        self._is_live = True
+        return self._stream_url
+
+    def _make_capture(self, stream_url: str) -> Any:
         if self._capture_factory is not None:
-            capture = self._capture_factory(str(stream_url))
+            capture = self._capture_factory(stream_url)
         else:
-            capture = cv2.VideoCapture(str(stream_url), cv2.CAP_FFMPEG)
+            capture = cv2.VideoCapture(stream_url, cv2.CAP_FFMPEG)
             # Best-effort bounded open/read timeouts (FFMPEG backend).
             try:
                 capture.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 15000)
                 capture.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 15000)
+                # Keep at most one decoded frame queued inside the backend.
+                capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             except Exception:  # pragma: no cover - backend dependent
-                logger.debug("YouTube stream timeout properties not supported")
+                logger.debug("YouTube stream timeout/buffer properties not supported")
         if capture is None or not capture.isOpened():
             if capture is not None:
                 capture.release()
             self._last_error = "could not open the resolved YouTube stream"
             raise CameraConnectionError(self._last_error)
-        self._cap = capture
-        self._resolved = info
-        self._is_live = True
+        return capture
+
+    def _open(self) -> None:
+        if self._stream_url is None:
+            self._resolve_stream()
+        assert self._stream_url is not None
+        self._cap = self._make_capture(self._stream_url)
         self._consecutive_failures = 0
         self._last_error = None
+        self._last_read_monotonic = time.monotonic()
         logger.info(
             "youtube camera %s resolved live stream (format=%s height=%s)",
             self._camera_id,
-            info.get("format_id"),
-            info.get("height"),
+            self._resolved.get("format_id"),
+            self._resolved.get("height"),
         )
 
     def connect(self) -> None:
         with self._lock:
             self._release()
+            self._stream_url = None
             self._open()
 
     def disconnect(self) -> None:
         with self._lock:
             self._release()
+            self._stream_url = None
+            self._last_read_monotonic = None
+            self._resolved = {}
+            self._is_live = False
 
     def _release(self) -> None:
         if self._cap is not None:
@@ -344,9 +374,21 @@ class YouTubeLiveProvider(CameraProvider):
     # ------------------------------------------------------------------
     def read_frame(self) -> Frame:
         with self._lock:
-            if self._cap is None or not self._cap.isOpened():
-                self._reconnect_count += 1
-                self._open()
+            if self._stream_url is None:
+                self._resolve_stream()
+            assert self._stream_url is not None
+            was_open = self._cap is not None and self._cap.isOpened()
+            idle = (
+                self._last_read_monotonic is None
+                or (time.monotonic() - self._last_read_monotonic) > self._REOPEN_AFTER_SECONDS
+            )
+            if not was_open or idle:
+                # Reconnect at the live edge instead of draining a growing HLS
+                # backlog one frame per sampling interval.
+                self._release()
+                self._cap = self._make_capture(self._stream_url)
+                if not was_open:
+                    self._reconnect_count += 1
             assert self._cap is not None
             ok, image = self._cap.read()
             if not ok or image is None:
@@ -355,12 +397,14 @@ class YouTubeLiveProvider(CameraProvider):
                 if self._consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
                     # Expired URL or dropped stream: force a fresh resolve.
                     self._release()
+                    self._stream_url = None
                 raise FrameUnavailableError(
                     "could not read a frame from the YouTube Live stream "
                     f"({self._consecutive_failures} consecutive failure(s))"
                 )
             self._consecutive_failures = 0
             self._last_error = None
+            self._last_read_monotonic = time.monotonic()
             self._frames_captured += 1
             self._sequence += 1
             # Wall-clock at frame receipt. YouTube provides no true per-frame

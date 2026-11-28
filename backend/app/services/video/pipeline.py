@@ -575,7 +575,7 @@ def analyze_video(
     if config.save_frames and frame_dir is not None:
         frame_dir.mkdir(parents=True, exist_ok=True)
 
-    model = segmenter or ShorelineSegmenter(device="cpu")
+    model = segmenter or ShorelineSegmenter()
     stats = AnalysisStats()
     observations: list[dict[str, Any]] = []
     last_progress = time.perf_counter()

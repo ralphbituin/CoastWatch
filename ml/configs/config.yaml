@@ -111,7 +111,7 @@ evaluation:
 inference:
   input_size: [512, 512]
   prefer_onnx: true
-  providers: [CUDAExecutionProvider, CPUExecutionProvider]
+  providers: [CPUExecutionProvider]
   batch_size: 8
   max_workers: 1
   overlay_alpha: 0.45

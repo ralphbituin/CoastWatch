@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import UTC, datetime
+from datetime import datetime
 
 import numpy as np
 import pytest
@@ -116,10 +116,6 @@ def test_rtsp_read_failure_raises_and_tracks(monkeypatch: pytest.MonkeyPatch) ->
     provider = RTSPCameraProvider("rtsp://cam.local/stream", camera_id=1)
     provider.connect()
     FakeCapture.read_ok = False
-    # The drain thread observes the failure asynchronously.
-    deadline = time.monotonic() + 2.0
-    while provider.get_status().healthy and time.monotonic() < deadline:
-        time.sleep(0.01)
     with pytest.raises(FrameUnavailableError):
         provider.read_frame()
     status = provider.get_status()
@@ -127,26 +123,25 @@ def test_rtsp_read_failure_raises_and_tracks(monkeypatch: pytest.MonkeyPatch) ->
     provider.disconnect()
 
 
-def test_rtsp_drain_thread_returns_latest_frame_quickly(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_rtsp_reads_exactly_one_frame_per_call(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_rtsp(monkeypatch)
     provider = RTSPCameraProvider("rtsp://cam.local/stream", camera_id=7, stall_timeout_s=5.0)
     provider.connect()
-    time.sleep(0.2)  # let the drain thread grab a few frames
-    started = time.perf_counter()
-    frame = provider.read_frame()
-    elapsed_ms = (time.perf_counter() - started) * 1000.0
     cap = FakeCapture.instances[-1]
-    gap_ms = (datetime.now(UTC) - frame.captured_at).total_seconds() * 1000.0
-    print(
-        f"drain: grabbed={cap.grabs} returned={provider.get_status().frames_captured} "
-        f"read_frame_ms={elapsed_ms:.2f} newest_frame_age_ms={gap_ms:.2f}"
-    )
+    assert cap.grabs == 0  # connect must not start decoding frames
+
+    frame = provider.read_frame()
     assert frame.image.shape == (48, 64, 3)
-    assert cap.grabs > 1  # the socket is drained between sampling reads
-    assert elapsed_ms < 100.0
-    assert gap_ms < 100.0
+    assert cap.grabs == 1
+    assert cap.retrieves == 1
+
+    # No background thread may decode between sampling reads.
+    time.sleep(0.2)
+    assert cap.grabs == 1
+
+    provider.read_frame()
+    assert cap.grabs == 2
+    assert cap.retrieves == 2
     assert provider.get_status().healthy is True
     provider.disconnect()
 
@@ -156,9 +151,8 @@ def test_rtsp_status_reports_stream_stalled(monkeypatch: pytest.MonkeyPatch) -> 
     provider = RTSPCameraProvider("rtsp://cam.local/stream", camera_id=1, stall_timeout_s=1.0)
     provider.connect()
     provider.read_frame()
-    provider._stop_drain()  # noqa: SLF001 - simulate a live socket stuck with no frames
     with provider._lock:  # noqa: SLF001
-        provider._latest_monotonic = time.monotonic() - 5.0  # noqa: SLF001
+        provider._last_read_monotonic = time.monotonic() - 5.0  # noqa: SLF001
     status = provider.get_status()
     assert status.connected is True
     assert status.healthy is False
@@ -178,9 +172,6 @@ def test_rtsp_reconnects_after_failures(monkeypatch: pytest.MonkeyPatch) -> None
     )
     provider.connect()
     FakeCapture.read_ok = False
-    deadline = time.monotonic() + 2.0
-    while provider.get_status().healthy and time.monotonic() < deadline:
-        time.sleep(0.01)
     for _ in range(3):  # exhaust consecutive-failure budget -> stream dropped
         with pytest.raises(FrameUnavailableError):
             provider.read_frame()

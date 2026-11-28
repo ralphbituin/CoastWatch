@@ -104,6 +104,11 @@ def create_app() -> FastAPI:
             "X-Preview-Age-Ms",
             "X-Preview-Cache-Age-Ms",
             "X-Preview-Observation-Id",
+            "X-Preview-Captured-At",
+            "X-Preview-Sample-Interval-Ms",
+            "X-Preview-Stale",
+            "X-Preview-Persisted",
+            "X-Monitoring-Outline-Matches",
         ],
     )
 

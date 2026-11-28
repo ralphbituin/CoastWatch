@@ -977,7 +977,7 @@ def main(argv: list[str] | None = None) -> int:
         frame_dir=str(frame_dir),
     )
 
-    segmenter = ShorelineSegmenter(device="cpu")
+    segmenter = ShorelineSegmenter()
     needs_header = not observations_path.exists() or observations_path.stat().st_size == 0
     handle = observations_path.open("a", encoding="utf-8", newline="")
     writer = csv.DictWriter(handle, fieldnames=OBSERVATION_FIELDS, extrasaction="ignore")

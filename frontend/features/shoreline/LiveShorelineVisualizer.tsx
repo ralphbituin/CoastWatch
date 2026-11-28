@@ -45,6 +45,9 @@ export function LiveShorelineVisualizer({
   const [interpolatedRanges, setInterpolatedRanges] = useState<number | null>(null);
   const [measuredCoverage, setMeasuredCoverage] = useState<number | null>(null);
   const [shorelineReason, setShorelineReason] = useState<string | null>(null);
+  const [waitingForSample, setWaitingForSample] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [sampleAgeMs, setSampleAgeMs] = useState<number | null>(null);
   const camera = cameras.find((item) => item.id === selectedCameraId);
   const polylineSegments = polyline
     ? polyline
@@ -69,6 +72,9 @@ export function LiveShorelineVisualizer({
     setInterpolatedRanges(null);
     setMeasuredCoverage(null);
     setShorelineReason(null);
+    setWaitingForSample(false);
+    setStale(false);
+    setSampleAgeMs(null);
   }, [selectedCameraId]);
 
   useEffect(() => {
@@ -78,13 +84,36 @@ export function LiveShorelineVisualizer({
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let currentUrl: string | null = null;
     const controller = new AbortController();
+    // The worker samples once per interval; never poll faster than it produces.
+    const FALLBACK_INTERVAL_MS = 10_000;
 
     const refresh = async () => {
+      const startedAt = Date.now();
+      let nextDelayMs = FALLBACK_INTERVAL_MS;
       try {
         const response = await fetch(
           `${API_V1}/cameras/${selectedCameraId}/shoreline-preview?mask=${showMask ? "1" : "0"}&ts=${Date.now()}`,
           { cache: "no-store", signal: controller.signal },
         );
+        const intervalHeader = numericHeader(response.headers, "X-Preview-Sample-Interval-Ms");
+        if (intervalHeader !== null && intervalHeader > 0) {
+          nextDelayMs = intervalHeader;
+        }
+
+        if (response.status === 503) {
+          // The worker has not produced a frame yet: keep the last image and
+          // wait for the next sample instead of showing an error.
+          let retryAfterMs = Math.min(nextDelayMs, 5000);
+          const retryAfter = Number(response.headers.get("Retry-After"));
+          if (Number.isFinite(retryAfter) && retryAfter > 0) {
+            retryAfterMs = retryAfter * 1000;
+          }
+          if (!active) return;
+          setWaitingForSample(true);
+          setError(null);
+          nextDelayMs = retryAfterMs;
+          return;
+        }
         if (!response.ok) {
           let message = `Preview failed (${response.status})`;
           try {
@@ -103,6 +132,9 @@ export function LiveShorelineVisualizer({
         currentUrl = nextUrl;
         setImageUrl(nextUrl);
         setError(null);
+        setWaitingForSample(false);
+        setStale(response.headers.get("X-Preview-Stale") === "1");
+        setSampleAgeMs(numericHeader(response.headers, "X-Preview-Age-Ms"));
         setConfidence(numericHeader(response.headers, "X-Segmentation-Confidence"));
         setInferenceMs(numericHeader(response.headers, "X-Inference-Ms"));
         setCapturedAt(response.headers.get("X-Frame-Captured-At"));
@@ -130,7 +162,12 @@ export function LiveShorelineVisualizer({
           setError(err instanceof Error ? err.message : "Could not load shoreline preview");
         }
       } finally {
-        if (active) timeout = setTimeout(() => void refresh(), 3000);
+        if (active) {
+          // Align the next request to the producer's cadence, not to latency.
+          const elapsed = Date.now() - startedAt;
+          const delay = Math.max(1000, nextDelayMs - elapsed);
+          timeout = setTimeout(() => void refresh(), delay);
+        }
       }
     };
 
@@ -195,6 +232,11 @@ export function LiveShorelineVisualizer({
             Live
           </span>
         )}
+        {imageUrl && stale && (
+          <span className="inline-flex items-center gap-1.5 rounded bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+            Stale sample
+          </span>
+        )}
       </div>
 
       <div className="relative flex min-h-56 items-center justify-center overflow-hidden rounded-lg bg-slate-950">
@@ -248,7 +290,9 @@ export function LiveShorelineVisualizer({
             ) : running ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                Waiting for the first prediction…
+                {waitingForSample
+                  ? "Waiting for the live worker's next sample…"
+                  : "Waiting for the first prediction…"}
               </span>
             ) : (
               "Preview paused. Resume to continue."
@@ -302,6 +346,7 @@ export function LiveShorelineVisualizer({
             {measuredCoverage !== null ? ` · measured ${(measuredCoverage * 100).toFixed(0)}%` : ""}
             {interpolatedRanges !== null && interpolatedRanges > 0 ? ` · ${interpolatedRanges} bridged span(s)` : ""}
             {capturedAt ? ` · frame ${new Date(capturedAt).toLocaleTimeString()}` : ""}
+            {sampleAgeMs !== null ? ` · sample age ${(sampleAgeMs / 1000).toFixed(1)} s` : ""}
           </span>
         ) : (
           <span className="text-slate-400">

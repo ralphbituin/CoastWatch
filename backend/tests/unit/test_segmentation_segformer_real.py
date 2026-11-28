@@ -71,8 +71,7 @@ def test_real_artifact_config_is_three_class_segformer() -> None:
     assert config["checkpoint"]["path"].endswith("ml/checkpoints/segformer_b2_multisite/best.pt")
     assert config["artifact"]["input_name"] == "input"
     assert config["artifact"]["output_name"] == "logits"
-    assert "CUDAExecutionProvider" in config["providers"]
-    assert "CPUExecutionProvider" in config["providers"]
+    assert config["providers"] == ["CPUExecutionProvider"]
     assert config["limitations"]
     # The automatic-label / site-held-out caveat must be explicit, not assumed.
     assert any(

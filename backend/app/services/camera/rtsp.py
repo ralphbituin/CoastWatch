@@ -4,9 +4,10 @@ RTSP URL configuration, connection timeout, automatic reconnection and
 stream health monitoring. Frames are acquired via OpenCV's FFMPEG-backed
 ``VideoCapture``.
 
-A background drain thread keeps calling ``grab()`` so the transport socket is
-never allowed to back up between the (deliberately slow) sampling reads. The
-newest decoded frame is retained and returned by :meth:`read_frame`.
+There is deliberately **no background drain thread**. The live capture worker
+samples one frame per configured interval, so each :meth:`read_frame` performs
+one synchronous ``grab()`` + ``retrieve()``. Decoding the stream continuously
+would burn CPU needed by the CPU-only segmentation model.
 """
 
 from __future__ import annotations
@@ -84,14 +85,8 @@ class RTSPCameraProvider(CameraProvider):
         self._lock = threading.Lock()
         self._grab_lock = threading.Lock()
         self._connect_lock = threading.Lock()
-        self._frame_ready = threading.Event()
-        self._drain_stop = threading.Event()
-        self._drain_thread: threading.Thread | None = None
 
-        self._latest_image: Any | None = None
-        self._latest_captured_at: datetime | None = None
-        self._latest_monotonic: float | None = None
-        self._drain_failures = 0
+        self._last_read_monotonic: float | None = None
 
         self._frames_captured = 0
         self._last_frame_at: datetime | None = None
@@ -109,7 +104,6 @@ class RTSPCameraProvider(CameraProvider):
         self._release()
 
     def _release(self) -> None:
-        self._stop_drain()
         with self._grab_lock:
             self._release_capture_locked()
 
@@ -118,35 +112,14 @@ class RTSPCameraProvider(CameraProvider):
         with self._lock:
             cap = self._cap
             self._cap = None
-            self._latest_image = None
-            self._latest_captured_at = None
-            self._latest_monotonic = None
+            self._last_read_monotonic = None
         if cap is not None:
             try:
                 cap.release()
             except Exception:  # pragma: no cover - backend dependent
                 logger.debug("rtsp camera %s: release failed", self._camera_id)
 
-    def _stop_drain(self) -> None:
-        thread = self._drain_thread
-        self._drain_thread = None
-        self._drain_stop.set()
-        if thread is None or thread is threading.current_thread():
-            return
-        thread.join(timeout=max(1.0, self._timeout_s + 1.0))
-
-    def _start_drain(self) -> None:
-        self._drain_stop.clear()
-        thread = threading.Thread(
-            target=self._drain_loop,
-            name=f"coastwatch-rtsp-drain-{self._camera_id}",
-            daemon=True,
-        )
-        self._drain_thread = thread
-        thread.start()
-
     def _open_capture(self) -> None:
-        self._stop_drain()
         with self._grab_lock:
             self._release_capture_locked()
             _force_tcp_transport()
@@ -170,13 +143,8 @@ class RTSPCameraProvider(CameraProvider):
             with self._lock:
                 self._cap = cap
                 self._consecutive_failures = 0
-                self._drain_failures = 0
                 self._last_error = None
-                self._latest_image = None
-                self._latest_captured_at = None
-                self._latest_monotonic = None
-        self._frame_ready.clear()
-        self._start_drain()
+                self._last_read_monotonic = None
         logger.info("rtsp camera %s connected (tcp)", self._camera_id)
 
     def _ensure_connected(self) -> None:
@@ -200,19 +168,17 @@ class RTSPCameraProvider(CameraProvider):
             )
 
     # ------------------------------------------------------------------
-    # Background drain
+    # Frame acquisition
     # ------------------------------------------------------------------
-    def _drain_loop(self) -> None:
-        while not self._drain_stop.is_set():
-            ok = False
-            image = None
-            with self._grab_lock:
-                if self._drain_stop.is_set():
-                    break
-                with self._lock:
-                    cap = self._cap
-                if cap is None or not cap.isOpened():
-                    break
+    def read_frame(self) -> Frame:
+        """Read exactly one frame synchronously (one grab + one retrieve)."""
+        self._ensure_connected()
+        image: Any | None = None
+        ok = False
+        with self._grab_lock:
+            with self._lock:
+                cap = self._cap
+            if cap is not None and cap.isOpened():
                 try:
                     ok = bool(cap.grab())
                     if ok:
@@ -220,65 +186,27 @@ class RTSPCameraProvider(CameraProvider):
                 except Exception:  # pragma: no cover - backend dependent
                     ok = False
                     image = None
-            if ok and image is not None:
-                with self._lock:
-                    self._latest_image = image
-                    self._latest_captured_at = datetime.now(UTC)
-                    self._latest_monotonic = time.monotonic()
-                    self._drain_failures = 0
-                    self._last_error = None
-                self._frame_ready.set()
-                self._drain_stop.wait(0.01)
-                continue
-
-            with self._lock:
-                self._drain_failures += 1
-                self._last_error = "frame read failed"
-                failures = self._drain_failures
-            if failures >= _MAX_CONSECUTIVE_FAILURES:
-                # Drop the stream; the next read reconnects from scratch.
-                with self._grab_lock:
-                    self._release_capture_locked()
-                break
-            self._drain_stop.wait(0.05)
-
-    # ------------------------------------------------------------------
-    # Frame acquisition
-    # ------------------------------------------------------------------
-    def read_frame(self) -> Frame:
-        self._ensure_connected()
-        deadline = time.monotonic() + max(1.0, self._timeout_s)
-        while True:
-            with self._lock:
-                image = self._latest_image
-                captured_at = self._latest_captured_at
-                failures = self._drain_failures
-            if image is not None and captured_at is not None and failures == 0:
-                with self._lock:
-                    self._consecutive_failures = 0
-                    self._last_error = None
-                    self._frames_captured += 1
-                    self._sequence += 1
-                    self._last_frame_at = captured_at
-                    sequence = self._sequence
-                return Frame(
-                    image=image,
-                    captured_at=captured_at,
-                    metadata=self.get_metadata(),
-                    sequence=sequence,
-                )
-            if failures > 0:
-                self._register_failure("frame read failed")
-                raise FrameUnavailableError(
-                    f"could not read a frame from the RTSP stream "
-                    f"({self._consecutive_failures} consecutive failure(s))"
-                )
-            if time.monotonic() >= deadline:
-                self._register_failure("stream stalled")
-                raise FrameUnavailableError(
-                    "timed out waiting for the RTSP stream to produce a frame"
-                )
-            self._frame_ready.wait(0.05)
+        if not ok or image is None:
+            self._register_failure("frame read failed")
+            raise FrameUnavailableError(
+                f"could not read a frame from the RTSP stream "
+                f"({self._consecutive_failures} consecutive failure(s))"
+            )
+        captured_at = datetime.now(UTC)
+        with self._lock:
+            self._last_read_monotonic = time.monotonic()
+            self._consecutive_failures = 0
+            self._last_error = None
+            self._frames_captured += 1
+            self._sequence += 1
+            self._last_frame_at = captured_at
+            sequence = self._sequence
+        return Frame(
+            image=image,
+            captured_at=captured_at,
+            metadata=self.get_metadata(),
+            sequence=sequence,
+        )
 
     def _register_failure(self, message: str) -> None:
         with self._lock:
@@ -296,15 +224,10 @@ class RTSPCameraProvider(CameraProvider):
             connected = self._cap is not None and bool(self._cap.isOpened())
             stalled = bool(
                 connected
-                and self._latest_monotonic is not None
-                and (time.monotonic() - self._latest_monotonic) > self._stall_timeout_s
+                and self._last_read_monotonic is not None
+                and (time.monotonic() - self._last_read_monotonic) > self._stall_timeout_s
             )
-            healthy = (
-                connected
-                and self._consecutive_failures == 0
-                and self._drain_failures == 0
-                and not stalled
-            )
+            healthy = connected and self._consecutive_failures == 0 and not stalled
             if stalled:
                 message = "stream stalled"
             elif connected and self._last_frame_at is not None:

@@ -18,7 +18,16 @@ from app.services.camera.base import (
     CameraStatus,
     Frame,
 )
+from app.services.live import capture as capture_module
 from app.services.live.capture import LiveCaptureWorker
+from app.services.live.preview_cache import get_preview_cache
+
+
+@pytest.fixture(autouse=True)
+def _clear_preview_cache() -> None:
+    get_preview_cache().clear_all()
+    yield
+    get_preview_cache().clear_all()
 
 
 class FakeProvider(CameraProvider):
@@ -236,3 +245,86 @@ def test_session_identity_is_generated_once_not_per_frame() -> None:
     assert len(sessions) == 1
     assert len({o.recording_id for o in observations}) == 1
     assert observations[0].stream_session_id == sessions[0].session_id
+
+
+def test_worker_builds_one_segmenter_and_runs_one_inference_per_sample() -> None:
+    shared: dict[str, Any] = {"added": [], "commits": 0, "sessions": {}}
+    provider = FakeProvider()
+    factory_calls: list[int] = []
+
+    class CountingSegmenter(FakeSegmenter):
+        def __init__(self) -> None:
+            self.predictions = 0
+
+        def predict(self, image):  # noqa: ANN001
+            self.predictions += 1
+            return super().predict(image)
+
+    segmenter = CountingSegmenter()
+
+    def segmenter_factory() -> CountingSegmenter:
+        factory_calls.append(1)
+        return segmenter
+
+    worker = LiveCaptureWorker(
+        7,
+        session_factory=lambda: FakeSession(shared),
+        provider_factory=lambda _camera: provider,
+        segmenter_factory=segmenter_factory,
+        sample_interval_seconds=30.0,
+    )
+    _provider, context = worker._initialise()
+    assert len(factory_calls) == 1
+
+    worker._sample_once(context)
+    worker._sample_once(context)
+
+    assert len(factory_calls) == 1
+    assert segmenter.predictions == 2
+    assert provider.reads == 2
+
+
+def test_worker_publishes_preview_before_persistence_and_after_commit() -> None:
+    worker, _shared, _provider = _worker()
+    _provider2, context = worker._initialise()
+    worker._sample_once(context)
+
+    entry = get_preview_cache().get(7, max_age_seconds=3600.0)
+    assert entry is not None
+    assert entry.persisted is True
+    assert entry.observation_id is not None
+    assert entry.frame_index == 1
+    assert entry.recording_id == context.status.recording_id
+
+
+def test_worker_still_publishes_preview_when_persistence_rejects(monkeypatch) -> None:
+    worker, _shared, _provider = _worker()
+    _provider2, context = worker._initialise()
+    monkeypatch.setattr(
+        capture_module,
+        "write_observation",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            status="rejected", reason="quality_rejected", observation=None
+        ),
+    )
+
+    worker._sample_once(context)
+
+    entry = get_preview_cache().get(7, max_age_seconds=3600.0)
+    assert entry is not None
+    assert entry.persisted is False
+    assert entry.observation_id is None
+    assert worker.status.frames_rejected == 1
+
+
+def test_worker_counts_skipped_slots_without_catching_up() -> None:
+    worker, _shared, _provider = _worker()
+    _provider2, context = worker._initialise()
+
+    # A sample that overran by 0.2 s missed the due slot; 1.5 s missed two.
+    assert LiveCaptureWorker._missed_slots(0.2, 1.0) == 1
+    assert LiveCaptureWorker._missed_slots(1.5, 1.0) == 2
+    assert LiveCaptureWorker._missed_slots(0.0, 1.0) == 0
+
+    worker._add_skipped(2)
+    assert worker.status.samples_skipped == 2

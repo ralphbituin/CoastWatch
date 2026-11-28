@@ -32,6 +32,9 @@ class PreviewCacheEntry:
     ingest_latency_ms: float | None
     stored_monotonic: float
     monitoring_outline_present: bool = False
+    # False when the worker sampled/segmented the frame but persistence rejected
+    # it. The preview may show it; it must not imply the observation was stored.
+    persisted: bool = True
 
     def age_seconds(self, now: float | None = None) -> float:
         reference = time.monotonic() if now is None else now

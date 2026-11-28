@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -128,6 +129,37 @@ def test_provider_uses_wall_clock_receipt_time_and_redacts() -> None:
     assert "token" not in str(frame.metadata.extra)
     assert provider.get_status().connected is True
     assert calls["resolve"] == 1
+
+
+def test_provider_reopens_at_live_edge_after_idle_gap() -> None:
+    """A 10 s sampling gap must not replay a growing HLS backlog."""
+    calls = {"resolve": 0}
+
+    def resolver(_url, _quality, _format):
+        calls["resolve"] += 1
+        return {
+            "stream_url": "https://cdn.example/live.m3u8",
+            "is_live": True,
+            "format_id": "96",
+        }
+
+    provider = YouTubeLiveProvider(
+        "https://youtu.be/abc123",
+        resolver=resolver,
+        capture_factory=FakeCapture,
+    )
+    provider.connect()
+    provider.read_frame()
+    assert len(FakeCapture.instances) == 1
+    assert calls["resolve"] == 1
+
+    # Simulate the worker's sampling interval without sleeping.
+    provider._last_read_monotonic = time.monotonic() - 10.0  # noqa: SLF001
+    provider.read_frame()
+
+    assert len(FakeCapture.instances) == 2
+    assert FakeCapture.instances[0].released is True
+    assert calls["resolve"] == 1  # cached stream URL, no yt-dlp re-resolution
 
 
 def test_provider_reconnects_and_re_resolves_expired_url() -> None:

@@ -197,7 +197,7 @@ def export(
                 "dynamic_batch": True,
             },
             "providers": config.get("inference", {}).get(
-                "providers", ["CUDAExecutionProvider", "CPUExecutionProvider"]
+                "providers", ["CPUExecutionProvider"]
             ),
             "preprocessing": {
                 "resize": "bilinear",
@@ -841,15 +841,14 @@ def export_segformer(
             "dynamic_batch": True,
             "dynamic_spatial": True,
         },
-        "providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+        "providers": ["CPUExecutionProvider"],
         "runtime": {
-            "allow_cpu_oom_fallback": True,
-            "note": "retry once on CPU after a CUDA OOM; otherwise fail explicitly",
+            "note": "CPU-only inference; failures are explicit, never faked",
         },
         "precision": {
             "default": "FP32",
-            "cuda": "FP32 CUDA when available",
-            "cpu": "FP32 CPU fallback",
+            "cpu": "FP32 CPU",
+            "cuda": "not used; this deployment runs CPU-only",
             "fp16": "not exported; no FP16 parity was demonstrated",
         },
         "checkpoint": dict(identity, path=_repo_relative(checkpoint_path)),

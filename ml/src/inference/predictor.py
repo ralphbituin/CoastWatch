@@ -157,11 +157,8 @@ class SegmentationPredictor:
                 "or backend/requirements-ml.txt."
             ) from exc
 
-        available = ort.get_available_providers()
-        requested = providers or self.config.get(
-            "providers", ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        )
-        self.providers = [name for name in requested if name in available] or [
+        requested = providers or self.config.get("providers", ["CPUExecutionProvider"])
+        self.providers = [name for name in requested if name == "CPUExecutionProvider"] or [
             "CPUExecutionProvider"
         ]
         options = ort.SessionOptions()

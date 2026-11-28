@@ -64,15 +64,15 @@ class Settings(BaseSettings):
     # or a camera device just by importing the app.
     live_capture_autostart: bool = Field(default=False)
     live_capture_interval_seconds: float = Field(default=30.0, ge=1.0, le=3600.0)
-    # Serve the worker's most recent frame/mask/shoreline to preview requests
-    # while it is this fresh. Default is two 30 s sampling intervals.
+    # Lower bound for serving the worker's most recent frame/mask/shoreline.
+    # The effective value is max(this, 2.5 * live_capture_interval_seconds).
     preview_cache_max_age_seconds: float = Field(default=60.0, ge=0.0)
-    # A second preview inference waits at most this long before returning the
-    # most recent result / 429 instead of queueing behind the in-flight run.
-    preview_single_flight_retry_after_seconds: int = Field(default=1, ge=1)
     # ONNX Runtime intra-op threads. 0 leaves ORT's default; the CPU sweep in
     # the latency report picked the documented value.
     onnx_intra_op_threads: int = Field(default=0, ge=0)
+    # Process-wide CPU inference cap. Multiple camera workers share the CPU;
+    # one run at a time keeps ONNX from oversubscribing every core.
+    onnx_max_concurrent_inferences: int = Field(default=1, ge=1, le=8)
     lab_max_concurrent_runs: int = Field(default=2, ge=1, le=8)
     lab_run_ttl_seconds: float = Field(default=6 * 3600.0, ge=60.0)
     lab_max_images: int = Field(default=50, ge=1, le=500)
