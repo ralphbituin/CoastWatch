@@ -27,6 +27,9 @@ const {
   finiteBounds,
   scaleToHeight,
   classificationCounts,
+  buildAnomalyChartData,
+  anomalyStateSegments,
+  anomalyStateColor,
 } = module.exports;
 
 function event(overrides) {
@@ -119,4 +122,45 @@ test("classification counts are transparent", () => {
     DATA_UNRELIABLE: 2,
     UNUSUAL_SHORELINE_POSITION: 1,
   });
+});
+
+test("the anomaly chart breaks lines at 45 s like the demo chart", () => {
+  const points = toAnomalyPoints([
+    event({ id: 1, detected_at: "2026-11-19T14:30:00+00:00", observed_position_px: 800 }),
+    event({ id: 2, detected_at: "2026-11-19T14:30:30+00:00", observed_position_px: 801 }),
+    event({ id: 3, detected_at: "2026-11-19T14:31:30+00:00", observed_position_px: 802 }),
+  ]);
+  const rows = buildAnomalyChartData(points, 45_000);
+  assert.equal(rows.length, 4);
+  assert.equal(rows[2].observed, null);
+  assert.equal(rows[3].observed, 802);
+});
+
+test("the detector state strip groups consecutive states", () => {
+  const points = toAnomalyPoints([
+    event({ id: 1, state: "MONITORING" }),
+    event({ id: 2, state: "MONITORING", detected_at: "2026-11-19T14:30:10+00:00" }),
+    event({ id: 3, state: "CANDIDATE", detected_at: "2026-11-19T14:30:20+00:00" }),
+  ]);
+  assert.deepEqual(anomalyStateSegments(points), [
+    { state: "MONITORING", count: 2 },
+    { state: "CANDIDATE", count: 1 },
+  ]);
+  assert.equal(anomalyStateColor("EVENT"), "#dc2626");
+});
+
+test("effective gate is used only when the stored event exposes it", () => {
+  const without = toAnomalyPoints([event({ id: 1 })]);
+  assert.equal(without[0].effectiveGate, null);
+  const withSigma = toAnomalyPoints([
+    event({
+      id: 2,
+      contributing_factors: { sigma_k_px: 20, drawdown_floor_px: 100 },
+    }),
+  ]);
+  assert.equal(withSigma[0].effectiveGate, 100);
+  const withGate = toAnomalyPoints([
+    event({ id: 3, contributing_factors: { effective_gate_px: 175 } }),
+  ]);
+  assert.equal(withGate[0].effectiveGate, 175);
 });

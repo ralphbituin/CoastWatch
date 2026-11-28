@@ -23,6 +23,9 @@ const NAV_ITEMS = [
   { href: "/anomalies", label: "Anomalies", icon: Activity },
   { href: "/recordings", label: "Recordings", icon: Film },
   { href: "/lab", label: "Test Lab", icon: FlaskConical },
+  ...(process.env.NEXT_PUBLIC_DEMO_INJECTION_ENABLED === "true"
+    ? [{ href: "/demo/injection", label: "Injection demo", icon: Activity }]
+    : []),
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

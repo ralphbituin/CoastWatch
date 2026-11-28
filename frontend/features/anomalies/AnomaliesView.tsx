@@ -287,7 +287,7 @@ export function AnomaliesView() {
             ? "Rolling baseline, shoreline position and drawdown"
             : "Tide, shoreline position and residual"
         }
-        subtitle="Separate axes; the rolling median is self-referential and unverified. Gaps are not interpolated. Click a marker to inspect that event."
+        subtitle="Sorted by time. Gaps larger than 45 s are not joined, and a detector-state strip is included. The rolling median is self-referential and unverified; click a marker to inspect that event."
         className="space-y-2"
       >
         <div className="mb-3 flex flex-wrap gap-2 text-xs text-slate-500">

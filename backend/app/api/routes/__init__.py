@@ -21,6 +21,7 @@ from app.api.routes import (
     videos,
     websocket,
 )
+from app.demo import router as demo
 
 api_router = APIRouter()
 api_router.include_router(health.router)
@@ -33,6 +34,7 @@ api_router.include_router(anomalies.router, prefix="/anomalies")
 api_router.include_router(videos.router, prefix="/videos")
 api_router.include_router(streams.router, prefix="/streams")
 api_router.include_router(lab.router, prefix="/lab")
+api_router.include_router(demo.router, prefix="/demo/injection")
 api_router.include_router(websocket.router)
 
 __all__ = ["api_router"]

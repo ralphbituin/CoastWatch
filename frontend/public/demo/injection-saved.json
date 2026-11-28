@@ -1,0 +1,63 @@
+{
+  "recording_id": "kohsamui_4h_20261128T014103Z",
+  "label": "Koh Samui 4 h recorded run (saved offline results)",
+  "presets": [
+    {
+      "id": "no_injection",
+      "label": "No injection",
+      "expected": "recorded series unchanged"
+    },
+    {
+      "id": "fast_retreat",
+      "label": "Fast retreat",
+      "expected": "100% detected, n=30 starts (nearest saved amplitude 300 px, ramp 60 s)"
+    },
+    {
+      "id": "borderline",
+      "label": "Borderline",
+      "expected": "30% detected, n=30 starts (nearest saved amplitude 150 px, ramp 60 s)"
+    },
+    {
+      "id": "below_gate",
+      "label": "Below the gate",
+      "expected": "0% detected, n=30 starts (nearest saved amplitude 80 px, ramp 60 s)"
+    },
+    {
+      "id": "slow_retreat",
+      "label": "Slow retreat",
+      "expected": "0% detected, n=30 starts (nearest saved amplitude 400 px, ramp 600 s)"
+    },
+    {
+      "id": "landward",
+      "label": "Landward move",
+      "expected": "0% detected, n=11 starts (nearest saved amplitude 300 px, ramp 60 s)"
+    }
+  ],
+  "minimum_90": [
+    {
+      "ramp_s": 30.0,
+      "text": "300 px (41.7% of 720 px), 100% detected"
+    },
+    {
+      "ramp_s": 60.0,
+      "text": "300 px (41.7% of 720 px), 100% detected"
+    },
+    {
+      "ramp_s": 90.0,
+      "text": "400 px (55.6% of 720 px), 100% detected"
+    },
+    {
+      "ramp_s": 120.0,
+      "text": "400 px (55.6% of 720 px), 93% detected"
+    },
+    {
+      "ramp_s": 300.0,
+      "text": "none in tested range"
+    },
+    {
+      "ramp_s": 600.0,
+      "text": "none in tested range"
+    }
+  ],
+  "note": "Pre-computed from the saved Koh Samui offline injection test. Replay only; no detector runs in this mode. SIMULATION - not real data. Not a tsunami validation."
+}

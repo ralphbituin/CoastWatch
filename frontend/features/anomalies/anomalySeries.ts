@@ -35,6 +35,8 @@ export interface AnomalyPoint {
   qualityStatus: string | null;
   cameraMotion: string | null;
   reason: string | null;
+  state: string;
+  effectiveGate: number | null;
 }
 
 export function toAnomalyPoints(events: AnomalyEvent[]): AnomalyPoint[] {
@@ -66,8 +68,42 @@ export function toAnomalyPoints(events: AnomalyEvent[]): AnomalyPoint[] {
             ? (event.contributing_factors.camera_motion as string)
             : null,
         reason: event.reason,
+        state: event.state,
+        effectiveGate: effectiveGate(event.contributing_factors),
       };
     });
+}
+
+function factorNumber(
+  factors: Record<string, unknown> | null | undefined,
+  keys: string[],
+): number | null {
+  if (!factors) return null;
+  for (const key of keys) {
+    const value = factors[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+/**
+ * The effective movement gate when the stored event exposes it. The current
+ * AnomalyEvent API does not persist sigma_k, so this is usually null. The chart
+ * only draws a gate when the server actually supplies one.
+ */
+function effectiveGate(
+  factors: Record<string, unknown> | null | undefined,
+): number | null {
+  const direct = factorNumber(factors, [
+    "effective_gate_px",
+    "movement_gate_px",
+    "gate_px",
+  ]);
+  if (direct !== null) return direct;
+  const sigma = factorNumber(factors, ["sigma_k_px", "sigma_k"]);
+  if (sigma === null) return null;
+  const floor = factorNumber(factors, ["drawdown_floor_px"]);
+  return Math.max(5 * sigma, floor ?? 0);
 }
 
 function finiteOrNull(value: number | null | undefined): number | null {
@@ -105,6 +141,111 @@ export function splitRuns(
   }
   if (current.length > 0) runs.push(current);
   return runs;
+}
+
+export const ANOMALY_GAP_MS = 45_000;
+
+export interface AnomalyChartPoint {
+  t: number | null;
+  id: number | null;
+  observed: number | null;
+  baseline: number | null;
+  residual: number | null;
+  tide: number | null;
+  robustZ: number | null;
+  cumulativeDrawdown: number | null;
+  gate: number | null;
+  gateUp: number | null;
+  gateDown: number | null;
+  classification: string | null;
+  state: string | null;
+  reason: string | null;
+}
+
+/**
+ * Build Recharts rows sorted by time, inserting a null row when the next sample
+ * is more than 45 s away. The demo chart uses the same gap rule.
+ */
+export function buildAnomalyChartData(
+  points: AnomalyPoint[],
+  gapMs = ANOMALY_GAP_MS,
+): AnomalyChartPoint[] {
+  const rows: AnomalyChartPoint[] = [];
+  let previous: number | null = null;
+  for (const point of points) {
+    if (!Number.isFinite(point.timeMs)) continue;
+    if (previous !== null && point.timeMs - previous > gapMs) {
+      rows.push({
+        t: previous + 1,
+        id: null,
+        observed: null,
+        baseline: null,
+        residual: null,
+        tide: null,
+        robustZ: null,
+        cumulativeDrawdown: null,
+        gate: null,
+        gateUp: null,
+        gateDown: null,
+        classification: null,
+        state: null,
+        reason: null,
+      });
+    }
+    const baseline = point.rollingBaseline ?? point.expected;
+    const gate = point.effectiveGate;
+    rows.push({
+      t: point.timeMs,
+      id: point.id,
+      observed: point.observed,
+      baseline,
+      residual: point.residual,
+      tide: point.tide,
+      robustZ: point.robustZ,
+      cumulativeDrawdown: point.cumulativeDrawdown,
+      gate,
+      gateUp: baseline !== null && gate !== null ? baseline + gate : null,
+      gateDown: baseline !== null && gate !== null ? baseline - gate : null,
+      classification: point.classification,
+      state: point.state,
+      reason: point.reason,
+    });
+    previous = point.timeMs;
+  }
+  return rows;
+}
+
+export function anomalyStateSegments(
+  points: AnomalyPoint[],
+): { state: string; count: number }[] {
+  const segments: { state: string; count: number }[] = [];
+  for (const point of points) {
+    const last = segments[segments.length - 1];
+    if (last && last.state === point.state) last.count += 1;
+    else segments.push({ state: point.state, count: 1 });
+  }
+  return segments;
+}
+
+export function anomalyStateColor(state: string): string {
+  switch (state.toUpperCase()) {
+    case "MONITORING":
+    case "OBSERVED":
+      return "#64748b";
+    case "CANDIDATE":
+      return "#f59e0b";
+    case "PENDING_PERSISTENCE":
+      return "#8b5cf6";
+    case "EVENT":
+    case "ANOMALY_DETECTED":
+      return "#dc2626";
+    case "COOLDOWN":
+      return "#0ea5e9";
+    case "DATA_UNRELIABLE":
+      return "#94a3b8";
+    default:
+      return "#cbd5e1";
+  }
 }
 
 export function finiteBounds(values: Array<number | null>): { min: number; max: number } | null {

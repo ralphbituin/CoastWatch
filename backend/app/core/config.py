@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     lab_max_stream_samples: int = Field(default=60, ge=1, le=1000)
     lab_max_stream_seconds: float = Field(default=600.0, ge=5.0, le=86400.0)
 
+    # --- DEMO MODE: offline injection on recorded runs (default off) ---
+    demo_injection_enabled: bool = Field(default=False)
+
     # --- Camera device discovery ---
     # Optional host-side agent used when the backend runs in a container that
     # cannot see host USB devices (Docker Desktop on Windows). See
