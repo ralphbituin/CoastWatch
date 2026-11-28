@@ -240,6 +240,7 @@ API responses expose `rtsp_url_redacted` (scheme + host only).
 | Method | Path | Description |
 |---|---|---|
 | GET | `/cameras` | List cameras (joined with station code/name; RTSP URLs redacted) |
+| GET | `/cameras/devices` | Detect camera devices without registering them. Returns local USB/V4L2/DirectShow devices and, when `HOST_CAMERA_AGENT_URL` is configured, webcams exposed by the Windows host agent. `probe=true` opens each device briefly to report `available`, resolution and FPS. Host-agent devices are returned as `camera_type: "rtsp"` with an MJPEG `stream_url` because host indices are not valid inside the container. See `docs/USB_CAMERAS.md` |
 | POST | `/cameras` | Register a camera (`201`). `rtsp` requires `rtsp_url`; `usb` requires `device_index`; `upload` takes neither |
 | GET | `/cameras/{id}` | Camera detail |
 | GET | `/cameras/{id}/status` | Health snapshot (connected/healthy/message, frames captured, last frame time). Reports this process's live connection, or `not connected` if none — it never opens hardware on its own |

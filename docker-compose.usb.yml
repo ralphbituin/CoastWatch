@@ -1,0 +1,30 @@
+# Linux USB camera passthrough for the CoastWatch backend.
+#
+# Usage (Linux hosts only):
+#   docker compose -f docker-compose.yml -f docker-compose.usb.yml up --build
+#
+# This maps host V4L2 devices into the backend container. It requires:
+#   * Linux host with /dev/video0 (and optionally /dev/video1, ...),
+#   * the container to see the same device nodes,
+#   * the process user to have read/write access (the image runs as root).
+#
+# Docker Desktop on **Windows does not support this**: a Linux container cannot
+# see a Windows USB webcam. Use the host camera agent instead:
+#   powershell -ExecutionPolicy Bypass -File scripts\host-camera-agent.ps1
+# and keep the default HOST_CAMERA_AGENT_URL in docker-compose.yml.
+#
+# Remove device lines you do not have; Compose fails if a listed device is
+# missing on the host.
+
+services:
+  backend:
+    devices:
+      - /dev/video0:/dev/video0
+      # - /dev/video1:/dev/video1
+      # - /dev/video2:/dev/video2
+      # - /dev/video3:/dev/video3
+    group_add:
+      - "${VIDEO_GID:-44}"
+    environment:
+      # Local discovery reads /dev/video*; no host agent is needed.
+      HOST_CAMERA_AGENT_URL: ${HOST_CAMERA_AGENT_URL:-}

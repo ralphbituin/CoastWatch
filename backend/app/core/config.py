@@ -83,6 +83,13 @@ class Settings(BaseSettings):
     lab_max_stream_samples: int = Field(default=60, ge=1, le=1000)
     lab_max_stream_seconds: float = Field(default=600.0, ge=5.0, le=86400.0)
 
+    # --- Camera device discovery ---
+    # Optional host-side agent used when the backend runs in a container that
+    # cannot see host USB devices (Docker Desktop on Windows). See
+    # tools/host_camera_agent.py and docs/USB_CAMERAS.md.
+    host_camera_agent_url: str | None = Field(default=None)
+    host_camera_agent_timeout_seconds: float = Field(default=2.5, ge=0.1, le=30.0)
+
     # --- Tide-aware baseline gates (retained, but no predictor feeds them) ---
     # |slope| at a timestamp below this (m per hour) is treated as slack water.
     tide_slack_slope_tolerance_m_per_hour: float = Field(default=0.01)

@@ -4,6 +4,7 @@ import { API_V1 } from "@/lib/config";
 import type {
   Camera,
   CameraCalibration,
+  CameraDeviceList,
   CameraRoiPolygon,
   CameraStatus,
   CameraStreamStatus,
@@ -39,6 +40,9 @@ async function cameraRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const camerasApi = {
   list: () => cameraRequest<Camera[]>("/cameras"),
+
+  detectDevices: (probe = true) =>
+    cameraRequest<CameraDeviceList>(`/cameras/devices${probe ? "?probe=true" : ""}`),
 
   get: (cameraId: number) => cameraRequest<Camera>(`/cameras/${cameraId}`),
 

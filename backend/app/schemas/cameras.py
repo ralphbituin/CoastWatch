@@ -12,6 +12,31 @@ from app.services.vision.roi import RoiPolygonError, normalize_roi_polygon
 CameraType = Literal["rtsp", "usb", "upload", "video", "youtube_live"]
 
 
+class CameraDeviceRead(BaseModel):
+    """One camera device discovered on the backend host or a host agent."""
+
+    index: int | None = None
+    name: str
+    source: Literal["local", "host_agent"]
+    camera_type: Literal["usb", "rtsp"]
+    backend: str
+    available: bool = True
+    is_virtual: bool = False
+    width: int | None = None
+    height: int | None = None
+    fps: float | None = None
+    device_index: int | None = None
+    stream_url: str | None = None
+    detail: str | None = None
+
+
+class CameraDeviceListRead(BaseModel):
+    devices: list[CameraDeviceRead]
+    host_agent_configured: bool
+    host_agent_available: bool
+    warnings: list[str] = Field(default_factory=list)
+
+
 class RoiPolygon(BaseModel):
     """One simple monitoring ring in normalized frame coordinates."""
 

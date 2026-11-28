@@ -100,6 +100,29 @@ export interface Country {
 
 export type CameraType = "rtsp" | "usb" | "upload" | "video" | "youtube_live";
 
+export interface CameraDevice {
+  index: number | null;
+  name: string;
+  source: "local" | "host_agent";
+  camera_type: "usb" | "rtsp";
+  backend: string;
+  available: boolean;
+  is_virtual: boolean;
+  width: number | null;
+  height: number | null;
+  fps: number | null;
+  device_index: number | null;
+  stream_url: string | null;
+  detail: string | null;
+}
+
+export interface CameraDeviceList {
+  devices: CameraDevice[];
+  host_agent_configured: boolean;
+  host_agent_available: boolean;
+  warnings: string[];
+}
+
 export interface Camera {
   id: number;
   code: string;

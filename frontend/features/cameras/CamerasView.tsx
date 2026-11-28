@@ -23,6 +23,7 @@ import { CalibrationMaskPlotter } from "./CalibrationMaskPlotter";
 import type {
   Camera as CameraRow,
   CameraCalibration,
+  CameraDevice,
   CameraStatus,
   CameraTestConnectionResult,
   CameraType,
@@ -58,6 +59,9 @@ export function CamerasView() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [status, setStatus] = useState<CameraStatus | null>(null);
   const [testResult, setTestResult] = useState<CameraTestConnectionResult | null>(null);
+  const [devices, setDevices] = useState<CameraDevice[]>([]);
+  const [deviceWarnings, setDeviceWarnings] = useState<string[]>([]);
+  const [detecting, setDetecting] = useState(false);
   const [calibrations, setCalibrations] = useState<CameraCalibration[]>([]);
   const [frameStamp, setFrameStamp] = useState(0);
   const [frameError, setFrameError] = useState<string | null>(null);
@@ -151,6 +155,56 @@ export function CamerasView() {
     setEditingCameraId(null);
   };
 
+  const detectDevices = async () => {
+    setDetecting(true);
+    setError(null);
+    setDeviceWarnings([]);
+    try {
+      const result = await camerasApi.detectDevices(true);
+      setDevices(result.devices);
+      setDeviceWarnings(result.warnings);
+      if (result.devices.length === 0 && result.warnings.length === 0) {
+        report("No cameras detected on the backend host.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Camera detection failed");
+    } finally {
+      setDetecting(false);
+    }
+  };
+
+  const applyDetectedDevice = (device: CameraDevice) => {
+    if (!device.available) {
+      setError(`${device.name} is present but could not be opened. Close other apps using it and retry.`);
+      return;
+    }
+    const next = { ...form };
+    if (device.camera_type === "usb" && device.device_index !== null) {
+      next.camera_type = "usb";
+      next.device_index = String(device.device_index);
+      next.rtsp_url = "";
+    } else if (device.stream_url) {
+      // Host-agent cameras are MJPEG streams read through the network provider.
+      next.camera_type = "rtsp";
+      next.rtsp_url = device.stream_url;
+      next.device_index = "";
+    } else {
+      setError(`No usable source was reported for ${device.name}.`);
+      return;
+    }
+    if (!next.name.trim()) next.name = device.name;
+    if (!next.code.trim()) {
+      const slug = device.name
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 56);
+      next.code = `CAM-${slug || "USB"}`;
+    }
+    setForm(next);
+    report(`Using ${device.name} (${device.source === "host_agent" ? "host agent" : "local"}).`);
+  };
+
   const beginEdit = (camera: CameraRow) => {
     setForm({
       code: camera.code,
@@ -210,7 +264,7 @@ export function CamerasView() {
       }
       const deviceIndex = num(form.device_index);
       if (form.camera_type === "rtsp" && !editingCameraId && !form.rtsp_url.trim()) {
-        throw new Error("An RTSP URL is required for RTSP cameras.");
+        throw new Error("A stream URL is required for network cameras.");
       }
       if (form.camera_type === "usb" && (deviceIndex === null || Number.isNaN(deviceIndex))) {
         throw new Error("A device index is required for USB cameras.");
@@ -422,7 +476,7 @@ export function CamerasView() {
 
   const typeBadge = (t: CameraType) =>
     t === "rtsp"
-      ? "RTSP"
+      ? "RTSP / MJPEG"
       : t === "usb"
         ? "USB"
         : t === "video"
@@ -547,11 +601,79 @@ export function CamerasView() {
                 ))}
               </select>
             </label>
+            <div className="col-span-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-medium text-slate-600">Detected cameras</p>
+                  <p className="text-xs text-slate-400">
+                    Local USB devices and, when configured, webcams exposed by the Windows host agent.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void detectDevices()}
+                  disabled={detecting}
+                  className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                >
+                  {detecting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  {detecting ? "Detecting…" : "Detect cameras"}
+                </button>
+              </div>
+              {devices.length > 0 ? (
+                <ul className="mt-2 space-y-1">
+                  {devices.map((device) => (
+                    <li key={`${device.source}-${device.backend}-${device.index ?? device.name}`}>
+                      <button
+                        type="button"
+                        onClick={() => applyDetectedDevice(device)}
+                        disabled={!device.available}
+                        className="flex w-full items-center justify-between gap-3 rounded border border-slate-200 bg-white px-3 py-2 text-left text-xs hover:border-reef hover:bg-reef/5 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <span>
+                          <span className="block font-medium text-slate-800">
+                            {device.name}
+                            {device.is_virtual ? (
+                              <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal text-slate-500">
+                                virtual
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="block text-slate-400">
+                            {device.source === "host_agent" ? "host agent" : "local"}
+                            {device.index !== null ? ` · index ${device.index}` : ""}
+                            {device.width && device.height ? ` · ${device.width}×${device.height}` : ""}
+                            {device.fps ? ` · ${device.fps.toFixed(0)} fps` : ""}
+                            {device.available ? "" : " · unavailable"}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-reef">
+                          {device.camera_type === "usb" ? "Use USB" : "Use stream"}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-xs text-slate-400">
+                  Click Detect cameras. In Docker Desktop on Windows, start the host agent first so
+                  webcams are visible inside the container.
+                </p>
+              )}
+              {deviceWarnings.map((warning) => (
+                <p key={warning} className="mt-2 text-xs text-amber-700">
+                  {warning}
+                </p>
+              ))}
+            </div>
             {form.camera_type === "rtsp" &&
-              input("RTSP URL", form.rtsp_url, (v) => setForm({ ...form, rtsp_url: v }), {
+              input("Stream URL (RTSP or HTTP MJPEG)", form.rtsp_url, (v) => setForm({ ...form, rtsp_url: v }), {
                 placeholder: editingCameraId
-                  ? "leave blank to keep the stored RTSP URL"
-                  : "rtsp://user:pass@host/stream",
+                  ? "leave blank to keep the stored stream URL"
+                  : "rtsp://user:pass@host/stream or http://host:8765/stream/0.mjpg",
               })}
             {form.camera_type === "usb" &&
               input("Device index", form.device_index, (v) => setForm({ ...form, device_index: v }), {

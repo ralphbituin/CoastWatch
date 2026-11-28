@@ -31,6 +31,8 @@ from app.schemas.cameras import (
     CameraCalibrationCreate,
     CameraCalibrationRead,
     CameraCreate,
+    CameraDeviceListRead,
+    CameraDeviceRead,
     CameraQualityRead,
     CameraRead,
     CameraStatusRead,
@@ -127,6 +129,33 @@ def list_cameras(db: Session = Depends(get_db)) -> list[CameraRead]:
         select(Camera).options(joinedload(Camera.station)).order_by(Camera.code)
     ).all()
     return [_to_read(c) for c in cameras]
+
+
+@router.get(
+    "/devices",
+    response_model=CameraDeviceListRead,
+    summary="Detect camera devices (local + host agent)",
+)
+def list_camera_devices(probe: bool = False) -> CameraDeviceListRead:
+    """List camera devices visible to this backend process.
+
+    ``probe=true`` opens each device briefly to report resolution/FPS and
+    whether it can actually be used. It is slower and may fail while another
+    application is using the camera.
+
+    Docker Desktop on Windows cannot pass a USB webcam into a Linux container.
+    Start ``tools/host_camera_agent.py`` on the Windows host and point
+    ``HOST_CAMERA_AGENT_URL`` at it to see host webcams here.
+    """
+    from app.services.camera.discovery import discover_cameras
+
+    result = discover_cameras(probe=probe)
+    return CameraDeviceListRead(
+        devices=[CameraDeviceRead(**device.as_dict()) for device in result.devices],
+        host_agent_configured=result.host_agent_configured,
+        host_agent_available=result.host_agent_available,
+        warnings=result.warnings,
+    )
 
 
 @router.post(
